@@ -5,22 +5,34 @@ export default function Profile({
   currentUser,
   onUpdateProfile,
   friends = [],
+  friendRequests = [],
   profileUserFriends = [],
-  onAddFriend,
+  onRequestFriend,
+  onAcceptFriend,
+  onDeclineFriend,
+  onCancelRequest,
   onRemoveFriend,
   onBackToFeed,
   onViewProfile,
 }) {
   const extractId = (user) => {
     if (!user) return '';
-    if (typeof user === 'object') return String(user.id || user.username || user.name || '');
+    if (typeof user === 'object') return String(user.id || user.uid || user._id || user.username || user.name || '');
     return String(user);
   };
 
-  const targetUserId = extractId(profileUser) || extractId(currentUser);
-  const currentUserId = extractId(currentUser);
+  const extractUsername = (user) => {
+    if (!user) return '';
+    if (typeof user === 'object') return String(user.username || user.name || user.displayName || user.id || '');
+    return String(user);
+  };
 
-  const isSelf = !profileUser || targetUserId === currentUserId;
+  const currentUserId = extractId(currentUser);
+  const currentUsername = extractUsername(currentUser);
+  const targetUserId = profileUser ? extractId(profileUser) : currentUserId;
+  const targetUsername = profileUser ? extractUsername(profileUser) : currentUsername;
+
+  const isSelf = !profileUser || targetUserId === currentUserId || targetUsername === currentUsername;
 
   const getAvatarUrl = (userObj) => {
     if (typeof userObj !== 'object' || !userObj) return '';
@@ -31,10 +43,10 @@ export default function Profile({
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: typeof displayUser === 'object' ? displayUser?.name || '' : String(displayUser || ''),
-    birthdate: typeof displayUser === 'object' ? displayUser?.birthdate || '' : '',
-    bio: typeof displayUser === 'object' ? displayUser?.bio || '' : '',
-    avatarUrl: getAvatarUrl(displayUser),
+    name: '',
+    birthdate: '',
+    bio: '',
+    avatarUrl: '',
   });
 
   useEffect(() => {
@@ -48,11 +60,33 @@ export default function Profile({
     }
   }, [displayUser]);
 
-  const isFriend = (friends || []).some((f) => extractId(f) === targetUserId);
+  const isFriend = (friends || []).some(
+    (f) => extractId(f) === targetUserId || extractUsername(f) === targetUsername
+  );
 
-  // Filters out self from displaying inside your own or viewed friend circles
+  const hasSentRequest = (friendRequests || []).some((req) => {
+    const senderId = extractId(req.sender);
+    const receiverId = extractId(req.receiver);
+    const receiverName = extractUsername(req.receiver);
+    return senderId === currentUserId && (receiverId === targetUserId || receiverName === targetUsername);
+  });
+
+  const hasReceivedRequest = (friendRequests || []).some((req) => {
+    const senderId = extractId(req.sender);
+    const senderName = extractUsername(req.sender);
+    const receiverId = extractId(req.receiver);
+    return (senderId === targetUserId || senderName === targetUsername) && receiverId === currentUserId;
+  });
+
+  // Incoming requests addressed specifically to currentUser
+  const incomingRequests = (friendRequests || []).filter((req) => {
+    const receiverId = extractId(req.receiver);
+    const receiverName = extractUsername(req.receiver);
+    return receiverId === currentUserId || receiverName === currentUsername;
+  });
+
   const activeFriendsList = (isSelf ? (friends || []) : (profileUserFriends || []))
-    .filter((friend) => extractId(friend) !== currentUserId);
+    .filter((friend) => extractId(friend) !== currentUserId && extractUsername(friend) !== currentUsername);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -81,12 +115,26 @@ export default function Profile({
     setIsEditing(false);
   };
 
+  // Safe handler wrapper to pass formatted user parameter
+  const handleRemove = (target) => {
+    if (!onRemoveFriend) return;
+    onRemoveFriend(target);
+  };
+
   const displayName = typeof displayUser === 'object'
     ? displayUser?.name || displayUser?.username || 'User Profile'
     : String(displayUser || 'User Profile');
-    
+
   const userInitial = displayName.charAt(0).toUpperCase() || 'U';
   const activeAvatar = getAvatarUrl(displayUser) || (isSelf ? formData.avatarUrl : '');
+
+  const formatBirthdate = (dateStr) => {
+    if (!dateStr) return 'Birthdate not set';
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime())
+      ? 'Birthdate not set'
+      : parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 font-sans pt-2 pb-20 px-2 sm:px-0">
@@ -102,6 +150,57 @@ export default function Profile({
         </button>
       )}
 
+      {/* Top Banner Pending Friend Requests Section */}
+      {isSelf && incomingRequests.length > 0 && (
+        <div className="bg-amber-50/80 border border-amber-200 rounded-3xl p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+              <span>📩</span> Friend Requests Received ({incomingRequests.length})
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {incomingRequests.map((req, idx) => {
+              const sender = req.sender || req;
+              const senderName = typeof sender === 'object' ? sender.name || sender.username || 'User' : String(sender);
+              const senderAvatar = getAvatarUrl(sender);
+
+              return (
+                <div key={extractId(sender) || idx} className="flex items-center justify-between p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
+                  <div 
+                    onClick={() => onViewProfile && onViewProfile(sender)}
+                    className="flex items-center space-x-3 cursor-pointer min-w-0"
+                  >
+                    {senderAvatar ? (
+                      <img src={senderAvatar} alt={senderName} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-amber-400 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                        {senderName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-xs font-bold text-stone-800 truncate">@{senderName}</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <button
+                      onClick={() => onAcceptFriend && onAcceptFriend(sender)}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] rounded-full transition shadow-2xs cursor-pointer"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => onDeclineFriend && onDeclineFriend(sender)}
+                      className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium text-[11px] rounded-full transition cursor-pointer"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Main Profile Header */}
       <div className="relative bg-white rounded-3xl border border-stone-200/70 shadow-sm overflow-hidden">
         <div className="h-32 sm:h-36 bg-gradient-to-r from-amber-100 via-stone-100 to-amber-50 relative overflow-hidden">
           <div className="absolute -right-8 -top-8 w-40 h-40 bg-amber-200/40 rounded-full blur-2xl"></div>
@@ -134,13 +233,45 @@ export default function Profile({
                   {isEditing ? 'Cancel Editing' : 'Edit Profile'}
                 </button>
               ) : isFriend ? (
-                <span className="inline-flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50/90 border border-emerald-200/80 rounded-full backdrop-blur-xs">
-                  <span>✓</span>
-                  <span>In Your Circle</span>
-                </span>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50/90 border border-emerald-200/80 rounded-full backdrop-blur-xs">
+                    <span>✓</span>
+                    <span>In Your Circle</span>
+                  </span>
+                  {onRemoveFriend && (
+                    <button
+                      onClick={() => handleRemove(displayUser)}
+                      className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-full transition cursor-pointer"
+                    >
+                      Unfriend
+                    </button>
+                  )}
+                </div>
+              ) : hasSentRequest ? (
+                <button
+                  onClick={() => onCancelRequest && onCancelRequest(displayUser)}
+                  className="px-5 py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 font-medium text-xs rounded-full transition cursor-pointer"
+                >
+                  Request Sent (Cancel)
+                </button>
+              ) : hasReceivedRequest ? (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => onAcceptFriend && onAcceptFriend(displayUser)}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-full transition shadow-md cursor-pointer"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => onDeclineFriend && onDeclineFriend(displayUser)}
+                    className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium text-xs rounded-full transition cursor-pointer"
+                  >
+                    Decline
+                  </button>
+                </div>
               ) : (
                 <button
-                  onClick={() => onAddFriend && onAddFriend(displayUser)}
+                  onClick={() => onRequestFriend && onRequestFriend(displayUser)}
                   className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-stone-50 font-medium text-xs rounded-full transition shadow-md hover:shadow-lg cursor-pointer active:scale-95"
                 >
                   + Add to Circle
@@ -163,13 +294,7 @@ export default function Profile({
               <span className="inline-flex items-center space-x-1.5 px-3 py-1 bg-stone-100/80 text-stone-600 rounded-full border border-stone-200/60 font-medium">
                 <span>🎂</span>
                 <span>
-                  {typeof displayUser === 'object' && displayUser?.birthdate
-                    ? new Date(displayUser.birthdate).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })
-                    : 'Birthdate not set'}
+                  {typeof displayUser === 'object' ? formatBirthdate(displayUser.birthdate) : 'Birthdate not set'}
                 </span>
               </span>
 
@@ -272,6 +397,7 @@ export default function Profile({
         </div>
       </div>
 
+      {/* Circle & Friends Section */}
       <div className="bg-white rounded-3xl border border-stone-200/70 shadow-sm p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-stone-100 pb-3">
           <h2 className="text-xs font-bold uppercase tracking-widest text-stone-500">
@@ -282,6 +408,37 @@ export default function Profile({
           </span>
         </div>
 
+        {/* Requests List Embedded in Circle View */}
+        {isSelf && incomingRequests.length > 0 && (
+          <div className="bg-amber-50/50 p-3 rounded-2xl border border-amber-100 space-y-2 mb-4">
+            <span className="text-[10px] font-bold uppercase text-amber-800">Received Requests</span>
+            {incomingRequests.map((req, idx) => {
+              const sender = req.sender || req;
+              const senderName = typeof sender === 'object' ? sender.name || sender.username || 'User' : String(sender);
+              return (
+                <div key={extractId(sender) || idx} className="flex items-center justify-between bg-white p-2 rounded-xl text-xs">
+                  <span className="font-medium text-stone-700">@{senderName}</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => onAcceptFriend && onAcceptFriend(sender)}
+                      className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-semibold"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => onDeclineFriend && onDeclineFriend(sender)}
+                      className="px-2 py-1 bg-stone-100 text-stone-600 rounded-lg text-[10px]"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Members List */}
         {activeFriendsList.length === 0 ? (
           <div className="text-center py-8 bg-stone-50/50 rounded-2xl border border-dashed border-stone-200">
             <p className="text-xs text-stone-400 italic">
@@ -292,17 +449,18 @@ export default function Profile({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {activeFriendsList.map((friend) => {
+            {activeFriendsList.map((friend, idx) => {
               const friendId = extractId(friend);
-              const isMyFriend = (friends || []).some((f) => extractId(f) === friendId);
-              const isMe = friendId === currentUserId;
+              const friendUsername = extractUsername(friend);
+              const isMyFriend = (friends || []).some((f) => extractId(f) === friendId || extractUsername(f) === friendUsername);
+              const isMe = friendId === currentUserId || friendUsername === currentUsername;
               const friendName = typeof friend === 'object' ? friend.name || friend.username || 'User' : String(friend);
               const friendInitial = friendName.charAt(0).toUpperCase();
               const friendAvatar = getAvatarUrl(friend);
 
               return (
                 <div
-                  key={friendId || Math.random()}
+                  key={friendId || `friend-${idx}`}
                   className="flex items-center justify-between p-3.5 bg-stone-50/70 hover:bg-stone-50 rounded-2xl border border-stone-200/60 transition group"
                 >
                   <div
@@ -328,22 +486,20 @@ export default function Profile({
                   </div>
 
                   <div className="shrink-0 ml-2">
-                    {isSelf ? (
+                    {isMe ? (
+                      <span className="text-[10px] text-stone-400 font-medium italic px-2">You</span>
+                    ) : isMyFriend ? (
                       onRemoveFriend && (
                         <button
-                          onClick={() => onRemoveFriend(friendId)}
+                          onClick={() => handleRemove(friend)}
                           className="text-[10px] text-stone-400 hover:text-rose-600 font-medium px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
                         >
                           Remove
                         </button>
                       )
-                    ) : isMe ? (
-                      <span className="text-[10px] text-stone-400 font-medium italic px-2">You</span>
-                    ) : isMyFriend ? (
-                      <span className="text-[10px] text-emerald-600 font-semibold px-2">✓ Friend</span>
                     ) : (
                       <button
-                        onClick={() => onAddFriend && onAddFriend(friend)}
+                        onClick={() => onRequestFriend && onRequestFriend(friend)}
                         className="text-[10px] bg-amber-500 hover:bg-amber-600 text-white font-medium px-3 py-1 rounded-full transition cursor-pointer active:scale-95"
                       >
                         + Add

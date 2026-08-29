@@ -41,7 +41,7 @@ export default function LoginModal({ onLogin }) {
 
           <button
             type="submit"
-            className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl transition shadow-sm"
+            className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl transition shadow-sm cursor-pointer"
           >
             Enter CatchUp
           </button>

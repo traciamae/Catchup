@@ -4,6 +4,21 @@ export default function PrivateJournal({ posts = [], addPost, currentUser = '', 
   const [text, setText] = useState('');
   const [image, setImage] = useState(null);
 
+  // Helper function to format ISO strings or timestamps into local Date & Time
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Personal Note';
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Personal Note';
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   // Normalize current user identifier
   const currentUsername = typeof currentUser === 'object' 
     ? currentUser?.username || currentUser?.name || currentUser?.id 
@@ -97,7 +112,7 @@ export default function PrivateJournal({ posts = [], addPost, currentUser = '', 
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-stone-400 font-medium">
-                    {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Personal Note'}
+                    {formatDate(post.createdAt)}
                   </span>
 
                   {/* Author deletion check */}

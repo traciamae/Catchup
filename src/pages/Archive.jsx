@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 export default function Archive({
   posts = [],
   currentUser = '',
+  friends = [],
   onPermanentDelete,
   onRestorePost,
   onViewProfile
@@ -14,21 +15,32 @@ export default function Archive({
     ? currentUser?.username || currentUser?.name || currentUser?.id
     : currentUser;
 
-  // Filter posts belonging strictly to the logged-in user
-  const userPosts = posts.filter((p) => {
-    const authorIdentifier = p.author || p.authorId || '';
-    return String(authorIdentifier) === String(currentUsername);
-  });
+  // Extract friend IDs and usernames into a single clean lookup list
+  const friendIdentifiers = friends.map((f) => 
+    typeof f === 'object' ? String(f?.username || f?.name || f?.id) : String(f)
+  );
 
-  // Tab 1: Posts older than 24 hours that are NOT soft-deleted
-  const expiredPosts = userPosts.filter((p) => {
+  // Tab 1: Posts older than 24 hours that belong to current user OR friends, and are NOT soft-deleted
+  const expiredPosts = posts.filter((p) => {
     if (p.isDeleted) return false;
+
+    const authorIdentifier = String(p.author || p.authorId || '');
+    const isMyPost = authorIdentifier === String(currentUsername);
+    const isFriendPost = friendIdentifiers.includes(authorIdentifier);
+
+    // Keep post only if it belongs to the user or a connected friend
+    if (!isMyPost && !isFriendPost) return false;
+
     const postAgeMs = Date.now() - new Date(p.createdAt || Date.now()).getTime();
     return p.isExpired || postAgeMs > 24 * 60 * 60 * 1000;
   });
 
-  // Tab 2: Soft-deleted posts regardless of age
-  const deletedPosts = userPosts.filter((p) => p.isDeleted);
+  // Tab 2: Soft-deleted posts belonging strictly to the logged-in user
+  const deletedPosts = posts.filter((p) => {
+    if (!p.isDeleted) return false;
+    const authorIdentifier = String(p.author || p.authorId || '');
+    return authorIdentifier === String(currentUsername);
+  });
 
   const displayedPosts = activeTab === 'expired' ? expiredPosts : deletedPosts;
 
@@ -43,9 +55,9 @@ export default function Archive({
       {/* Archive Header & Navigation Tabs */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200/80 space-y-4">
         <div>
-          <h2 className="text-xl font-bold text-stone-800">Post Archive</h2>
+          <h2 className="text-xl font-bold text-stone-800">Memory Archive</h2>
           <p className="text-xs text-stone-500 mt-1">
-            Manage your posts that have passed the 24-hour limit or were removed from your live feed.
+            Revisit past posts from you and your friends after they pass the 24-hour limit.
           </p>
         </div>
 
@@ -58,7 +70,7 @@ export default function Archive({
                 : 'text-stone-500 hover:text-stone-800'
             }`}
           >
-            Expired (24h+)
+            Memories (24h+)
             <span className="ml-2 text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full">
               {expiredPosts.length}
             </span>
@@ -72,7 +84,7 @@ export default function Archive({
                 : 'text-stone-500 hover:text-stone-800'
             }`}
           >
-            Deleted Posts
+            Trash Bin
             <span className="ml-2 text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full">
               {deletedPosts.length}
             </span>
@@ -85,6 +97,7 @@ export default function Archive({
         {displayedPosts.length > 0 ? (
           displayedPosts.map((post) => {
             const authorIdentifier = post.author || post.authorId || '';
+            const isOwner = String(authorIdentifier) === String(currentUsername);
             const formattedDate = post.createdAt
               ? new Date(post.createdAt).toLocaleDateString(undefined, {
                   month: 'short',
@@ -128,7 +141,7 @@ export default function Archive({
                   <div className="flex items-center space-x-2">
                     {activeTab === 'expired' && (
                       <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">
-                        Expired
+                        Memory
                       </span>
                     )}
                     {activeTab === 'deleted' && (
@@ -152,28 +165,28 @@ export default function Archive({
                   />
                 )}
 
-                {/* Action Bar */}
-                <div className="flex items-center justify-end space-x-3 pt-3 border-t border-stone-100">
-                  {/* Restore option for soft-deleted items */}
-                  {post.isDeleted && onRestorePost && (
-                    <button
-                      onClick={() => onRestorePost(post.id)}
-                      className="text-xs text-amber-600 hover:text-amber-700 font-medium px-3 py-1.5 rounded-lg hover:bg-amber-50 transition cursor-pointer"
-                    >
-                      Restore to Feed
-                    </button>
-                  )}
+                {/* Action Bar: Restricted to the post owner */}
+                {isOwner && (
+                  <div className="flex items-center justify-end space-x-3 pt-3 border-t border-stone-100">
+                    {post.isDeleted && onRestorePost && (
+                      <button
+                        onClick={() => onRestorePost(post.id)}
+                        className="text-xs text-amber-600 hover:text-amber-700 font-medium px-3 py-1.5 rounded-lg hover:bg-amber-50 transition cursor-pointer"
+                      >
+                        Restore to Feed
+                      </button>
+                    )}
 
-                  {/* Permanent deletion handler */}
-                  {onPermanentDelete && (
-                    <button
-                      onClick={() => handlePermanentDeleteClick(post.id)}
-                      className="text-xs text-red-500 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer"
-                    >
-                      Delete Permanently
-                    </button>
-                  )}
-                </div>
+                    {onPermanentDelete && (
+                      <button
+                        onClick={() => handlePermanentDeleteClick(post.id)}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer"
+                      >
+                        Delete Permanently
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })
@@ -182,7 +195,7 @@ export default function Archive({
             <p className="text-stone-500 text-sm font-medium">No posts found in this section.</p>
             <p className="text-stone-400 text-xs">
               {activeTab === 'expired'
-                ? 'Posts older than 24 hours will automatically show up here.'
+                ? 'Posts older than 24 hours from you and your friends will appear here as memories.'
                 : 'Posts you delete from your main stream will appear here.'}
             </p>
           </div>
