@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 export default function Profile({
   profileUser,
   currentUser,
+  allUsers = [],
   onUpdateProfile,
   friends = [],
   friendRequests = [],
@@ -17,13 +18,17 @@ export default function Profile({
 }) {
   const extractId = (user) => {
     if (!user) return '';
-    if (typeof user === 'object') return String(user.id || user.uid || user._id || user.username || user.name || '');
+    if (typeof user === 'object') {
+      return String(user.id || user.uid || user._id || user.username || user.name || '');
+    }
     return String(user);
   };
 
   const extractUsername = (user) => {
     if (!user) return '';
-    if (typeof user === 'object') return String(user.username || user.name || user.displayName || user.id || '');
+    if (typeof user === 'object') {
+      return String(user.username || user.name || user.displayName || user.id || '');
+    }
     return String(user);
   };
 
@@ -32,14 +37,20 @@ export default function Profile({
   const targetUserId = profileUser ? extractId(profileUser) : currentUserId;
   const targetUsername = profileUser ? extractUsername(profileUser) : currentUsername;
 
-  const isSelf = !profileUser || targetUserId === currentUserId || targetUsername === currentUsername;
+  // Case-insensitive comparison check to determine if viewing own profile
+  const isSelf =
+    !profileUser ||
+    (Boolean(currentUserId) && currentUserId.toLowerCase() === targetUserId.toLowerCase()) ||
+    (Boolean(currentUsername) && currentUsername.toLowerCase() === targetUsername.toLowerCase()) ||
+    (Boolean(currentUserId) && currentUserId.toLowerCase() === targetUsername.toLowerCase()) ||
+    (Boolean(currentUsername) && currentUsername.toLowerCase() === targetUserId.toLowerCase());
 
   const getAvatarUrl = (userObj) => {
     if (typeof userObj !== 'object' || !userObj) return '';
     return userObj.avatarUrl || userObj.avatar || userObj.profilePicture || userObj.image || '';
   };
 
-  const displayUser = isSelf ? (currentUser || profileUser) : (profileUser || currentUser);
+  const displayUser = isSelf ? currentUser || profileUser : profileUser || currentUser;
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -57,39 +68,74 @@ export default function Profile({
         bio: typeof displayUser === 'object' ? displayUser.bio || '' : '',
         avatarUrl: getAvatarUrl(displayUser),
       });
+      setIsEditing(false);
     }
   }, [displayUser]);
 
-  const isFriend = (friends || []).some(
-    (f) => extractId(f) === targetUserId || extractUsername(f) === targetUsername
-  );
+  const isFriend = (friends || []).some((f) => {
+    const fId = extractId(f).toLowerCase();
+    const fName = extractUsername(f).toLowerCase();
+    const tId = targetUserId.toLowerCase();
+    const tName = targetUsername.toLowerCase();
+    return (tId && (fId === tId || fName === tId)) || (tName && (fId === tName || fName === tName));
+  });
 
   const hasSentRequest = (friendRequests || []).some((req) => {
-    const senderId = extractId(req.sender);
-    const receiverId = extractId(req.receiver);
-    const receiverName = extractUsername(req.receiver);
-    return senderId === currentUserId && (receiverId === targetUserId || receiverName === targetUsername);
+    const senderId = extractId(req.sender).toLowerCase();
+    const senderName = extractUsername(req.sender).toLowerCase();
+    const receiverId = extractId(req.receiver).toLowerCase();
+    const receiverName = extractUsername(req.receiver).toLowerCase();
+
+    const cId = currentUserId.toLowerCase();
+    const cName = currentUsername.toLowerCase();
+    const tId = targetUserId.toLowerCase();
+    const tName = targetUsername.toLowerCase();
+
+    const isFromMe = (cId && (senderId === cId || senderName === cId)) || (cName && (senderId === cName || senderName === cName));
+    const isToTarget = (tId && (receiverId === tId || receiverName === tId)) || (tName && (receiverId === tName || receiverName === tName));
+
+    return isFromMe && isToTarget;
   });
 
   const hasReceivedRequest = (friendRequests || []).some((req) => {
-    const senderId = extractId(req.sender);
-    const senderName = extractUsername(req.sender);
-    const receiverId = extractId(req.receiver);
-    return (senderId === targetUserId || senderName === targetUsername) && receiverId === currentUserId;
+    const senderId = extractId(req.sender).toLowerCase();
+    const senderName = extractUsername(req.sender).toLowerCase();
+    const receiverId = extractId(req.receiver).toLowerCase();
+    const receiverName = extractUsername(req.receiver).toLowerCase();
+
+    const cId = currentUserId.toLowerCase();
+    const cName = currentUsername.toLowerCase();
+    const tId = targetUserId.toLowerCase();
+    const tName = targetUsername.toLowerCase();
+
+    const isFromTarget = (tId && (senderId === tId || senderName === tId)) || (tName && (senderId === tName || senderName === tName));
+    const isToMe = (cId && (receiverId === cId || receiverName === cId)) || (cName && (receiverId === cName || receiverName === cName));
+
+    return isFromTarget && isToMe;
   });
 
   // Incoming requests addressed specifically to currentUser
   const incomingRequests = (friendRequests || []).filter((req) => {
-    const receiverId = extractId(req.receiver);
-    const receiverName = extractUsername(req.receiver);
-    return receiverId === currentUserId || receiverName === currentUsername;
+    const receiverId = extractId(req.receiver).toLowerCase();
+    const receiverName = extractUsername(req.receiver).toLowerCase();
+    const cId = currentUserId.toLowerCase();
+    const cName = currentUsername.toLowerCase();
+
+    return (cId && (receiverId === cId || receiverName === cId)) || (cName && (receiverId === cName || receiverName === cName));
   });
 
-  const activeFriendsList = (isSelf ? (friends || []) : (profileUserFriends || []))
-    .filter((friend) => extractId(friend) !== currentUserId && extractUsername(friend) !== currentUsername);
+  const activeFriendsList = (isSelf ? friends || [] : profileUserFriends || []).filter((friend) => {
+    const fId = extractId(friend).toLowerCase();
+    const fName = extractUsername(friend).toLowerCase();
+    const cId = currentUserId.toLowerCase();
+    const cName = currentUsername.toLowerCase();
+
+    const isMe = (cId && (fId === cId || fName === cId)) || (cName && (fId === cName || fName === cName));
+    return !isMe;
+  });
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -115,15 +161,15 @@ export default function Profile({
     setIsEditing(false);
   };
 
-  // Safe handler wrapper to pass formatted user parameter
   const handleRemove = (target) => {
     if (!onRemoveFriend) return;
     onRemoveFriend(target);
   };
 
-  const displayName = typeof displayUser === 'object'
-    ? displayUser?.name || displayUser?.username || 'User Profile'
-    : String(displayUser || 'User Profile');
+  const displayName =
+    typeof displayUser === 'object'
+      ? displayUser?.name || displayUser?.username || 'User Profile'
+      : String(displayUser || 'User Profile');
 
   const userInitial = displayName.charAt(0).toUpperCase() || 'U';
   const activeAvatar = getAvatarUrl(displayUser) || (isSelf ? formData.avatarUrl : '');
@@ -148,56 +194,6 @@ export default function Profile({
           </span>
           <span>Back to Home</span>
         </button>
-      )}
-
-      {/* Top Banner Pending Friend Requests Section */}
-      {isSelf && incomingRequests.length > 0 && (
-        <div className="bg-amber-50/80 border border-amber-200 rounded-3xl p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-              <span>📩</span> Friend Requests Received ({incomingRequests.length})
-            </h3>
-          </div>
-          <div className="space-y-2">
-            {incomingRequests.map((req, idx) => {
-              const sender = req.sender || req;
-              const senderName = typeof sender === 'object' ? sender.name || sender.username || 'User' : String(sender);
-              const senderAvatar = getAvatarUrl(sender);
-
-              return (
-                <div key={extractId(sender) || idx} className="flex items-center justify-between p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
-                  <div 
-                    onClick={() => onViewProfile && onViewProfile(sender)}
-                    className="flex items-center space-x-3 cursor-pointer min-w-0"
-                  >
-                    {senderAvatar ? (
-                      <img src={senderAvatar} alt={senderName} className="w-8 h-8 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-amber-400 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                        {senderName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className="text-xs font-bold text-stone-800 truncate">@{senderName}</span>
-                  </div>
-                  <div className="flex items-center space-x-1.5 shrink-0">
-                    <button
-                      onClick={() => onAcceptFriend && onAcceptFriend(sender)}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] rounded-full transition shadow-2xs cursor-pointer"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => onDeclineFriend && onDeclineFriend(sender)}
-                      className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium text-[11px] rounded-full transition cursor-pointer"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       )}
 
       {/* Main Profile Header */}
@@ -413,21 +409,31 @@ export default function Profile({
           <div className="bg-amber-50/50 p-3 rounded-2xl border border-amber-100 space-y-2 mb-4">
             <span className="text-[10px] font-bold uppercase text-amber-800">Received Requests</span>
             {incomingRequests.map((req, idx) => {
-              const sender = req.sender || req;
-              const senderName = typeof sender === 'object' ? sender.name || sender.username || 'User' : String(sender);
+              const rawSender = req.sender || req;
+              const senderObj =
+                (allUsers || []).find((u) => {
+                  const uId = extractId(u).toLowerCase();
+                  const uName = extractUsername(u).toLowerCase();
+                  const rId = extractId(rawSender).toLowerCase();
+                  const rName = extractUsername(rawSender).toLowerCase();
+                  return (rId && (uId === rId || uName === rId)) || (rName && (uId === rName || uName === rName));
+                }) || rawSender;
+
+              const senderName = typeof senderObj === 'object' ? senderObj.name || senderObj.username || 'User' : String(senderObj);
+
               return (
-                <div key={extractId(sender) || idx} className="flex items-center justify-between bg-white p-2 rounded-xl text-xs">
+                <div key={extractId(senderObj) || idx} className="flex items-center justify-between bg-white p-2 rounded-xl text-xs">
                   <span className="font-medium text-stone-700">@{senderName}</span>
                   <div className="flex gap-1">
                     <button
-                      onClick={() => onAcceptFriend && onAcceptFriend(sender)}
-                      className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-semibold"
+                      onClick={() => onAcceptFriend && onAcceptFriend(senderObj)}
+                      className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-semibold cursor-pointer"
                     >
                       Accept
                     </button>
                     <button
-                      onClick={() => onDeclineFriend && onDeclineFriend(sender)}
-                      className="px-2 py-1 bg-stone-100 text-stone-600 rounded-lg text-[10px]"
+                      onClick={() => onDeclineFriend && onDeclineFriend(senderObj)}
+                      className="px-2 py-1 bg-stone-100 text-stone-600 rounded-lg text-[10px] cursor-pointer"
                     >
                       Decline
                     </button>
@@ -450,13 +456,33 @@ export default function Profile({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {activeFriendsList.map((friend, idx) => {
-              const friendId = extractId(friend);
-              const friendUsername = extractUsername(friend);
-              const isMyFriend = (friends || []).some((f) => extractId(f) === friendId || extractUsername(f) === friendUsername);
-              const isMe = friendId === currentUserId || friendUsername === currentUsername;
-              const friendName = typeof friend === 'object' ? friend.name || friend.username || 'User' : String(friend);
+              const friendObj =
+                (allUsers || []).find((u) => {
+                  const uId = extractId(u).toLowerCase();
+                  const uName = extractUsername(u).toLowerCase();
+                  const fId = extractId(friend).toLowerCase();
+                  const fName = extractUsername(friend).toLowerCase();
+                  return (fId && (uId === fId || uName === fId)) || (fName && (uId === fName || uName === fName));
+                }) || friend;
+
+              const friendId = extractId(friendObj);
+              const friendUsername = extractUsername(friendObj);
+
+              const isMyFriend = (friends || []).some((f) => {
+                const myFId = extractId(f).toLowerCase();
+                const myFName = extractUsername(f).toLowerCase();
+                const targetFId = friendId.toLowerCase();
+                const targetFName = friendUsername.toLowerCase();
+                return (targetFId && (myFId === targetFId || myFName === targetFId)) || (targetFName && (myFId === targetFName || myFName === targetFName));
+              });
+
+              const isMe =
+                (currentUserId && (friendId.toLowerCase() === currentUserId.toLowerCase() || friendUsername.toLowerCase() === currentUserId.toLowerCase())) ||
+                (currentUsername && (friendId.toLowerCase() === currentUsername.toLowerCase() || friendUsername.toLowerCase() === currentUsername.toLowerCase()));
+
+              const friendName = typeof friendObj === 'object' ? friendObj.name || friendObj.username || 'User' : String(friendObj);
               const friendInitial = friendName.charAt(0).toUpperCase();
-              const friendAvatar = getAvatarUrl(friend);
+              const friendAvatar = getAvatarUrl(friendObj);
 
               return (
                 <div
@@ -464,7 +490,7 @@ export default function Profile({
                   className="flex items-center justify-between p-3.5 bg-stone-50/70 hover:bg-stone-50 rounded-2xl border border-stone-200/60 transition group"
                 >
                   <div
-                    onClick={() => onViewProfile && onViewProfile(friend)}
+                    onClick={() => onViewProfile && onViewProfile(friendObj)}
                     className="flex items-center space-x-3 cursor-pointer min-w-0"
                   >
                     {friendAvatar ? (
@@ -491,7 +517,7 @@ export default function Profile({
                     ) : isMyFriend ? (
                       onRemoveFriend && (
                         <button
-                          onClick={() => handleRemove(friend)}
+                          onClick={() => handleRemove(friendObj)}
                           className="text-[10px] text-stone-400 hover:text-rose-600 font-medium px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
                         >
                           Remove
@@ -499,7 +525,7 @@ export default function Profile({
                       )
                     ) : (
                       <button
-                        onClick={() => onRequestFriend && onRequestFriend(friend)}
+                        onClick={() => onRequestFriend && onRequestFriend(friendObj)}
                         className="text-[10px] bg-amber-500 hover:bg-amber-600 text-white font-medium px-3 py-1 rounded-full transition cursor-pointer active:scale-95"
                       >
                         + Add

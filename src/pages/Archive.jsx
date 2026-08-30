@@ -10,25 +10,74 @@ export default function Archive({
 }) {
   const [activeTab, setActiveTab] = useState('expired'); // 'expired' | 'deleted'
 
-  // Extract author username safely whether currentUser is a string or object
-  const currentUsername = typeof currentUser === 'object'
-    ? currentUser?.username || currentUser?.name || currentUser?.id
-    : currentUser;
+  // Extract ID safely from string or object formats
+  const extractId = (user) => {
+    if (!user) return '';
+    if (typeof user === 'object') {
+      return String(user.id || user.uid || user._id || user.username || user.name || '');
+    }
+    return String(user);
+  };
 
-  // Extract friend IDs and usernames into a single clean lookup list
-  const friendIdentifiers = friends.map((f) => 
-    typeof f === 'object' ? String(f?.username || f?.name || f?.id) : String(f)
-  );
+  // Extract display username/name safely
+  const extractUsername = (user) => {
+    if (!user) return '';
+    if (typeof user === 'object') {
+      return String(user.username || user.name || user.displayName || user.id || '');
+    }
+    return String(user);
+  };
 
-  // Tab 1: Posts older than 24 hours that belong to current user OR friends, and are NOT soft-deleted
+  const currentUserId = extractId(currentUser);
+  const currentUsername = extractUsername(currentUser);
+
+  // Extract friend IDs and usernames into a clean lookup array
+  const friendIdentifiers = friends.flatMap((f) => {
+    if (typeof f === 'object' && f !== null) {
+      return [
+        String(f.id || f.uid || ''),
+        String(f.username || ''),
+        String(f.name || '')
+      ].filter(Boolean);
+    }
+    return [String(f)];
+  });
+
+  // Comprehensive helper function to match post ownership across schema types
+  const isPostOwner = (post) => {
+    if (!post) return false;
+
+    const postAuthorId = String(
+      post.authorId || (typeof post.authorObj === 'object' && post.authorObj ? post.authorObj.id : '') || ''
+    );
+    const postAuthorName = String(
+      post.author || (typeof post.authorObj === 'object' && post.authorObj ? post.authorObj.name || post.authorObj.username : '') || ''
+    );
+
+    const matchesId = Boolean(currentUserId && postAuthorId && currentUserId === postAuthorId);
+    const matchesUsername = Boolean(
+      currentUsername && postAuthorName && currentUsername.toLowerCase() === postAuthorName.toLowerCase()
+    );
+    const matchesCrossIdName = Boolean(
+      (currentUserId && postAuthorName && currentUserId.toLowerCase() === postAuthorName.toLowerCase()) ||
+      (currentUsername && postAuthorId && currentUsername.toLowerCase() === postAuthorId.toLowerCase())
+    );
+
+    return matchesId || matchesUsername || matchesCrossIdName;
+  };
+
+  // Tab 1: Posts older than 24 hours (or flagged expired) for user or friends, NOT soft-deleted, NOT private
   const expiredPosts = posts.filter((p) => {
-    if (p.isDeleted) return false;
+    if (p.isDeleted || p.isPrivate) return false;
 
-    const authorIdentifier = String(p.author || p.authorId || '');
-    const isMyPost = authorIdentifier === String(currentUsername);
-    const isFriendPost = friendIdentifiers.includes(authorIdentifier);
+    const postAuthorId = String(p.authorId || '');
+    const postAuthorName = String(p.author || '');
 
-    // Keep post only if it belongs to the user or a connected friend
+    const isMyPost = isPostOwner(p);
+    const isFriendPost =
+      friendIdentifiers.includes(postAuthorId) ||
+      friendIdentifiers.some((id) => id.toLowerCase() === postAuthorName.toLowerCase());
+
     if (!isMyPost && !isFriendPost) return false;
 
     const postAgeMs = Date.now() - new Date(p.createdAt || Date.now()).getTime();
@@ -38,20 +87,21 @@ export default function Archive({
   // Tab 2: Soft-deleted posts belonging strictly to the logged-in user
   const deletedPosts = posts.filter((p) => {
     if (!p.isDeleted) return false;
-    const authorIdentifier = String(p.author || p.authorId || '');
-    return authorIdentifier === String(currentUsername);
+    return isPostOwner(p);
   });
 
   const displayedPosts = activeTab === 'expired' ? expiredPosts : deletedPosts;
 
   const handlePermanentDeleteClick = (postId) => {
-    if (window.confirm("Are you sure you want to permanently delete this post? This action cannot be undone.")) {
-      onPermanentDelete(postId);
+    if (window.confirm('Are you sure you want to permanently delete this post? This action cannot be undone.')) {
+      if (onPermanentDelete) {
+        onPermanentDelete(postId);
+      }
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 font-sans py-4">
       {/* Archive Header & Navigation Tabs */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200/80 space-y-4">
         <div>
@@ -96,8 +146,8 @@ export default function Archive({
       <div className="space-y-4">
         {displayedPosts.length > 0 ? (
           displayedPosts.map((post) => {
-            const authorIdentifier = post.author || post.authorId || '';
-            const isOwner = String(authorIdentifier) === String(currentUsername);
+            const authorDisplayName = post.author || post.authorId || 'Anonymous';
+            const isOwner = isPostOwner(post);
             const formattedDate = post.createdAt
               ? new Date(post.createdAt).toLocaleDateString(undefined, {
                   month: 'short',
@@ -124,15 +174,21 @@ export default function Archive({
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center text-xs">
-                        {String(authorIdentifier).charAt(0).toUpperCase() || 'U'}
+                        {String(
+                          typeof authorDisplayName === 'object'
+                            ? authorDisplayName.name || authorDisplayName.username
+                            : authorDisplayName
+                        )
+                          .charAt(0)
+                          .toUpperCase() || 'U'}
                       </div>
                     )}
                     <div>
                       <button
-                        onClick={() => onViewProfile && onViewProfile(authorIdentifier)}
+                        onClick={() => onViewProfile && onViewProfile(post.authorId || post.author)}
                         className="font-semibold text-stone-800 hover:text-amber-600 transition text-sm cursor-pointer block text-left"
                       >
-                        @{authorIdentifier || 'Anonymous'}
+                        @{typeof authorDisplayName === 'object' ? authorDisplayName.name || authorDisplayName.username : authorDisplayName}
                       </button>
                       <span className="text-[10px] text-stone-400">{formattedDate}</span>
                     </div>
@@ -153,19 +209,23 @@ export default function Archive({
                 </div>
 
                 {/* Content */}
-                <p className="text-stone-700 leading-relaxed whitespace-pre-line text-sm">
-                  {post.text}
-                </p>
-
-                {post.image && (
-                  <img
-                    src={post.image}
-                    alt="Post media"
-                    className="w-full max-h-96 object-cover rounded-xl"
-                  />
+                {post.text && (
+                  <p className="text-stone-700 leading-relaxed whitespace-pre-line text-sm">
+                    {post.text}
+                  </p>
                 )}
 
-                {/* Action Bar: Restricted to the post owner */}
+                {post.image && (
+                  <div className="w-full overflow-hidden rounded-xl border border-stone-100 bg-stone-50">
+                    <img
+                      src={post.image}
+                      alt="Post media"
+                      className="w-full h-auto object-contain block"
+                    />
+                  </div>
+                )}
+
+                {/* Action Bar */}
                 {isOwner && (
                   <div className="flex items-center justify-end space-x-3 pt-3 border-t border-stone-100">
                     {post.isDeleted && onRestorePost && (
@@ -196,7 +256,7 @@ export default function Archive({
             <p className="text-stone-400 text-xs">
               {activeTab === 'expired'
                 ? 'Posts older than 24 hours from you and your friends will appear here as memories.'
-                : 'Posts you delete from your main stream will appear here.'}
+                : 'Posts you delete from your main stream will appear here in your trash bin.'}
             </p>
           </div>
         )}

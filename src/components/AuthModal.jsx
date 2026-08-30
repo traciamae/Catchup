@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
-export default function AuthModal({ onAuthSuccess }) {
+export default function AuthModal({ onAuthSuccess, allUsers = [] }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -24,38 +24,70 @@ export default function AuthModal({ onAuthSuccess }) {
     setLoading(true);
 
     try {
-      const userRef = doc(db, 'users', cleanUser);
-      const userSnap = await getDoc(userRef);
-
       if (isRegistering) {
+        // Check if original username document already exists
+        const userRef = doc(db, 'users', cleanUser);
+        const userSnap = await getDoc(userRef);
+
         if (userSnap.exists()) {
           setError('Username already taken. Please choose another or Log In.');
           setLoading(false);
           return;
         }
 
-        await setDoc(userRef, {
+        const newUserPayload = {
+          id: cleanUser,
           username: cleanUser,
+          name: cleanUser,
           password: cleanPass,
           createdAt: Date.now()
+        };
+
+        await setDoc(userRef, newUserPayload);
+        onAuthSuccess(newUserPayload);
+      } else {
+        // 1. Try finding local match in passed allUsers first
+        let targetUser = allUsers.find((u) => {
+          if (typeof u === 'object' && u !== null) {
+            const rawId = String(u.id || '').toLowerCase();
+            const rawUsername = String(u.username || '').toLowerCase();
+            const displayName = String(u.name || u.displayName || '').toLowerCase();
+            return rawId === cleanUser || rawUsername === cleanUser || displayName === cleanUser;
+          }
+          return String(u).toLowerCase() === cleanUser;
         });
 
-        onAuthSuccess(cleanUser);
-      } else {
-        if (!userSnap.exists()) {
+        // 2. Fallback to direct Firestore Query if not in local cache
+        if (!targetUser) {
+          const directDocSnap = await getDoc(doc(db, 'users', cleanUser));
+          if (directDocSnap.exists()) {
+            targetUser = { id: directDocSnap.id, ...directDocSnap.data() };
+          } else {
+            const usersQuery = query(
+              collection(db, 'users'),
+              where('name', '==', username.trim())
+            );
+            const querySnap = await getDocs(usersQuery);
+            if (!querySnap.empty) {
+              const matchedDoc = querySnap.docs[0];
+              targetUser = { id: matchedDoc.id, ...matchedDoc.data() };
+            }
+          }
+        }
+
+        if (!targetUser) {
           setError('Account not found. Please click Create an Account.');
           setLoading(false);
           return;
         }
 
-        const userData = userSnap.data();
-        if (userData.password !== cleanPass) {
+        if (targetUser.password && targetUser.password !== cleanPass) {
           setError('Incorrect password. Please try again.');
           setLoading(false);
           return;
         }
 
-        onAuthSuccess(cleanUser);
+        onAuthSuccess(targetUser);
       }
     } catch (err) {
       setError('Database error: ' + err.message);
@@ -93,7 +125,7 @@ export default function AuthModal({ onAuthSuccess }) {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Enter your username or display name"
               className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
           </div>

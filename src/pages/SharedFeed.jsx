@@ -6,11 +6,20 @@ export default function SharedFeed({ posts = [], addPost, currentUser = '', onDe
 
   const extractId = (user) => {
     if (!user) return '';
-    if (typeof user === 'object') return String(user.id || user.uid || user._id || user.username || user.name || '');
+    if (typeof user === 'object') {
+      return String(user.id || user.uid || user._id || user.username || user.name || '');
+    }
     return String(user);
   };
 
-  // Helper function to format ISO strings or timestamps into local Date & Time
+  const extractUsername = (user) => {
+    if (!user) return '';
+    if (typeof user === 'object') {
+      return String(user.username || user.name || user.displayName || user.id || '');
+    }
+    return String(user);
+  };
+
   const formatDate = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
@@ -26,6 +35,7 @@ export default function SharedFeed({ posts = [], addPost, currentUser = '', onDe
   };
 
   const currentUserId = extractId(currentUser);
+  const currentUsername = extractUsername(currentUser);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -44,14 +54,18 @@ export default function SharedFeed({ posts = [], addPost, currentUser = '', onDe
     }
   };
 
-  // Filter posts: non-private, active (<24h), and written ONLY by the current user
+  // Filter posts: non-private, non-deleted, active (<24h), and written by the current user
   const sharedPosts = posts.filter((p) => {
     if (p.isPrivate || p.isDeleted) return false;
 
-    const authorId = String(p.authorId || p.author || '');
-    const isSelf = authorId === currentUserId;
+    const postAuthorId = String(p.authorId || '');
+    const postAuthorName = String(p.author || '');
 
-    // Reject all posts that do not belong to the active user
+    const isSelf =
+      (currentUserId && postAuthorId === currentUserId) ||
+      (currentUsername && postAuthorName === currentUsername) ||
+      (currentUserId && postAuthorName === currentUserId);
+
     if (!isSelf) return false;
 
     const postAgeMs = Date.now() - new Date(p.createdAt || Date.now()).getTime();
@@ -60,6 +74,7 @@ export default function SharedFeed({ posts = [], addPost, currentUser = '', onDe
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      {/* Create Post Card */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200/80">
         <h2 className="text-lg font-semibold text-stone-800 mb-3">My Shared Feed</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -72,12 +87,12 @@ export default function SharedFeed({ posts = [], addPost, currentUser = '', onDe
           />
 
           {image && (
-            <div className="relative inline-block">
-              <img src={image} alt="Preview" className="max-h-40 rounded-lg object-cover" />
+            <div className="relative inline-block border border-stone-100 rounded-lg overflow-hidden bg-stone-50">
+              <img src={image} alt="Preview" className="max-h-60 w-auto object-contain block" />
               <button
                 type="button"
                 onClick={() => setImage(null)}
-                className="absolute top-1 right-1 bg-stone-900/70 text-white rounded-full p-1 text-xs cursor-pointer"
+                className="absolute top-2 right-2 bg-stone-900/70 hover:bg-stone-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs cursor-pointer transition"
               >
                 ✕
               </button>
@@ -99,17 +114,26 @@ export default function SharedFeed({ posts = [], addPost, currentUser = '', onDe
         </form>
       </div>
 
+      {/* Feed Posts */}
       <div className="space-y-4">
         {sharedPosts.length > 0 ? (
           sharedPosts.map((post) => {
-            const authorIdentifier = post.author || post.authorId || '';
-            const isAuthor = String(authorIdentifier) === String(currentUserId);
+            const authorIdentifier = post.author || post.authorId || 'Anonymous';
+            const postAuthorId = String(post.authorId || '');
+            const postAuthorName = String(post.author || '');
+
+            const isAuthor =
+              Boolean(currentUserId && postAuthorId && postAuthorId === currentUserId) ||
+              Boolean(currentUsername && postAuthorName && postAuthorName === currentUsername) ||
+              Boolean(currentUserId && postAuthorName && postAuthorName === currentUserId);
 
             return (
               <div key={post.id} className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
-                    <span className="font-semibold text-stone-800 text-sm">@{authorIdentifier || 'Anonymous'}</span>
+                    <span className="font-semibold text-stone-800 text-sm">
+                      @{typeof authorIdentifier === 'object' ? authorIdentifier.name || authorIdentifier.username : authorIdentifier}
+                    </span>
                     {post.createdAt && (
                       <span className="text-[11px] text-stone-400 font-normal">
                         {formatDate(post.createdAt)}
@@ -127,10 +151,18 @@ export default function SharedFeed({ posts = [], addPost, currentUser = '', onDe
                   )}
                 </div>
 
-                <p className="text-stone-700 leading-relaxed whitespace-pre-line text-sm">{post.text}</p>
+                {post.text && (
+                  <p className="text-stone-700 leading-relaxed whitespace-pre-line text-sm">{post.text}</p>
+                )}
 
                 {post.image && (
-                  <img src={post.image} alt="Post preview" className="w-full max-h-96 object-cover rounded-xl" />
+                  <div className="w-full overflow-hidden rounded-xl border border-stone-100 bg-stone-50">
+                    <img 
+                      src={post.image} 
+                      alt="Post preview" 
+                      className="w-full h-auto object-contain block" 
+                    />
+                  </div>
                 )}
               </div>
             );

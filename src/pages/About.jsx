@@ -36,15 +36,15 @@ export default function About() {
   const faqs = [
     {
       q: 'Who can see my Private Journal entries?',
-      a: 'Only you! Private journal entries are strictly linked to your authenticated username and hidden from community feeds.'
+      a: 'Only you! Private journal entries are strictly linked to your authenticated user account and hidden from community feeds.'
     },
     {
       q: 'How does the Archive calendar work?',
-      a: 'Any text or photo you post is automatically index-mapped by date. Days containing memories highlight with image bubbles.'
+      a: 'Any text or photo you post is automatically indexed by date. Days containing memories highlight with image previews.'
     },
     {
       q: 'Can I upload photos with my posts?',
-      a: 'Yes, both the Shared Feed and Private Journal support image attachments and document previews.'
+      a: 'Yes, both the Shared Feed and Private Journal support image attachments.'
     }
   ];
 
@@ -60,8 +60,8 @@ export default function About() {
             Where Personal Memories Meet Community Connection
           </h1>
           <p className="text-stone-300 text-sm leading-relaxed max-w-xl">
-            CatchUp is a unified space built for personal growth and social sharing. 
-            Keep a private dark-mode journal, revisit memories on a photo archive calendar, 
+            CatchUp is a unified platform built for personal reflection and social sharing. 
+            Maintain a secure private journal, revisit memories on a photo archive calendar, 
             or share updates with your community.
           </p>
         </div>
@@ -111,8 +111,9 @@ export default function About() {
           {faqs.map((faq, index) => (
             <div key={index} className="p-4">
               <button
+                type="button"
                 onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                className="w-full flex justify-between items-center text-left text-sm font-semibold text-stone-800"
+                className="w-full flex justify-between items-center text-left text-sm font-semibold text-stone-800 cursor-pointer"
               >
                 <span>{faq.q}</span>
                 <span className="text-stone-400 font-bold ml-2">

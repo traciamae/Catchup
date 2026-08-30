@@ -1,14 +1,41 @@
 import React, { useState } from 'react';
 import { UserCheck } from 'lucide-react';
 
-export default function LoginModal({ onLogin }) {
+export default function LoginModal({ onLogin, allUsers = [] }) {
   const [username, setUsername] = useState('');
+
+  const extractId = (user) => {
+    if (!user) return '';
+    if (typeof user === 'object') return String(user.id || user.uid || user._id || user.username || user.name || '');
+    return String(user);
+  };
+
+  const extractUsername = (user) => {
+    if (!user) return '';
+    if (typeof user === 'object') return String(user.username || user.name || user.displayName || user.id || '');
+    return String(user);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (username.trim()) {
-      onLogin(username.trim());
-    }
+    const inputVal = username.trim();
+    if (!inputVal) return;
+
+    // Search allUsers for a match by updated display name, name, or username
+    const matchedUser = (allUsers || []).find((u) => {
+      if (typeof u === 'object') {
+        const uName = (u.name || '').toLowerCase();
+        const uUsername = (u.username || '').toLowerCase();
+        const uDisplayName = (u.displayName || '').toLowerCase();
+        const searchVal = inputVal.toLowerCase();
+
+        return uName === searchVal || uUsername === searchVal || uDisplayName === searchVal;
+      }
+      return String(u).toLowerCase() === inputVal.toLowerCase();
+    });
+
+    // Pass back the matched updated user object, or the typed string if new
+    onLogin(matchedUser || inputVal);
   };
 
   return (

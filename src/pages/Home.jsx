@@ -29,15 +29,15 @@ export default function Home({
     return String(user);
   };
 
+  // Prefers 'name' (updated display name) over original 'username'
   const extractUsername = (user) => {
     if (!user) return '';
     if (typeof user === 'object') {
-      return String(user.username || user.name || user.displayName || user.id || '');
+      return String(user.name || user.displayName || user.username || user.id || '');
     }
     return String(user);
   };
 
-  // Helper to format timestamps into readable local Date & Time
   const formatDate = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
@@ -58,11 +58,13 @@ export default function Home({
   const safeAllUsers = Array.isArray(allUsers) ? allUsers : [];
   const safeFriends = Array.isArray(friends) ? friends : [];
 
-  // Filter incoming requests meant specifically for the current user
   const incomingRequests = (friendRequests || []).filter((req) => {
     const receiverId = extractId(req.receiver);
     const receiverName = extractUsername(req.receiver);
-    return receiverId === currentUserId || receiverName === currentUsername;
+    return (
+      (receiverId && receiverId === currentUserId) ||
+      (receiverName && receiverName === currentUsername)
+    );
   });
 
   const friendIdentifiersSet = new Set([
@@ -74,7 +76,10 @@ export default function Home({
     if (post.authorAvatar) return post.authorAvatar;
     const authorIdentifier = String(post.authorId || post.author || '');
     const matchedUser = safeAllUsers.find(
-      (u) => extractId(u) === authorIdentifier || extractUsername(u) === authorIdentifier
+      (u) =>
+        extractId(u) === authorIdentifier ||
+        extractUsername(u) === authorIdentifier ||
+        (typeof u === 'object' && String(u.username || '') === authorIdentifier)
     );
     return matchedUser?.avatarUrl || matchedUser?.avatar || matchedUser?.profilePicture || matchedUser?.image || '';
   };
@@ -86,8 +91,9 @@ export default function Home({
     const postAuthorName = String(p.author || '');
 
     const isSelf =
-      (postAuthorId && postAuthorId === currentUserId) ||
-      (postAuthorName && postAuthorName === currentUsername);
+      (currentUserId && postAuthorId === currentUserId) ||
+      (currentUsername && postAuthorName === currentUsername) ||
+      (currentUserId && postAuthorName === currentUserId);
 
     const isFriend =
       (postAuthorId && friendIdentifiersSet.has(postAuthorId)) ||
@@ -102,6 +108,7 @@ export default function Home({
     return !p.isExpired && !isOlderThan24h;
   });
 
+  // Matches both display name and username in search query
   const searchResults = cleanedQuery
     ? safeAllUsers.filter((u) => {
         const userId = extractId(u);
@@ -109,8 +116,11 @@ export default function Home({
 
         if (userId === currentUserId || userName === currentUsername) return false;
 
-        const displayName = (typeof u === 'object' ? u.name || u.username || u.displayName || u.email || '' : String(u)).toLowerCase();
-        return displayName.includes(cleanedQuery);
+        const nameMatch = (typeof u === 'object' ? u.name || '' : '').toLowerCase().includes(cleanedQuery);
+        const usernameMatch = (typeof u === 'object' ? u.username || '' : '').toLowerCase().includes(cleanedQuery);
+        const idMatch = userId.toLowerCase().includes(cleanedQuery);
+
+        return nameMatch || usernameMatch || idMatch;
       })
     : [];
 
@@ -125,7 +135,7 @@ export default function Home({
 
     const newComment = {
       id: `${postId}-${Date.now()}`,
-      author: currentUsername,
+      author: currentUsername || 'Anonymous',
       text,
       createdAt: new Date().toISOString()
     };
@@ -152,7 +162,22 @@ export default function Home({
             const authorAvatar = getAuthorAvatar(post);
             const postComments = post.comments || localComments[post.id] || [];
             const isCommentOpen = openCommentPostId === post.id;
-            const isMyPost = String(post.authorId || post.author) === currentUserId || String(post.author) === currentUsername;
+
+            const postAuthorId = String(post.authorId || '');
+            const postAuthorName = String(post.author || '');
+
+            const matchedAuthor = safeAllUsers.find(
+              (u) =>
+                extractId(u) === postAuthorId ||
+                extractUsername(u) === postAuthorName ||
+                (typeof u === 'object' && String(u.username || '') === postAuthorName)
+            );
+            const authorDisplayName = matchedAuthor ? extractUsername(matchedAuthor) : (post.author || 'Anonymous');
+
+            const isMyPost =
+              Boolean(currentUserId && postAuthorId && postAuthorId === currentUserId) ||
+              Boolean(currentUsername && postAuthorName && postAuthorName === currentUsername) ||
+              Boolean(currentUserId && postAuthorName && postAuthorName === currentUserId);
 
             const heartCount = typeof post.reactions === 'number'
               ? post.reactions
@@ -166,19 +191,18 @@ export default function Home({
                       <img src={authorAvatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center text-xs">
-                        {String(authorIdentifier).charAt(0).toUpperCase() || 'U'}
+                        {String(authorDisplayName).charAt(0).toUpperCase() || 'U'}
                       </div>
                     )}
                     <div className="flex flex-col">
                       <button
                         onClick={() => {
                           if (!onViewProfile) return;
-                          const matchedUser = safeAllUsers.find((u) => extractId(u) === String(authorIdentifier) || extractUsername(u) === String(authorIdentifier));
-                          onViewProfile(matchedUser || authorIdentifier);
+                          onViewProfile(matchedAuthor || authorIdentifier);
                         }}
                         className="font-semibold text-stone-800 hover:text-amber-600 transition text-sm cursor-pointer text-left leading-tight"
                       >
-                        @{typeof authorIdentifier === 'object' ? authorIdentifier.name || authorIdentifier.username : authorIdentifier || 'Anonymous'}
+                        @{authorDisplayName}
                       </button>
                       {post.createdAt && (
                         <span className="text-[11px] text-stone-400 font-normal">
@@ -198,10 +222,18 @@ export default function Home({
                   )}
                 </div>
 
-                <p className="text-stone-700 leading-relaxed whitespace-pre-line text-sm">{post.text}</p>
+                {post.text && (
+                  <p className="text-stone-700 leading-relaxed whitespace-pre-line text-sm">{post.text}</p>
+                )}
 
                 {post.image && (
-                  <img src={post.image} alt="Post media" className="w-full max-h-96 object-cover rounded-xl" />
+                  <div className="w-full overflow-hidden rounded-xl border border-stone-100 bg-stone-50">
+                    <img 
+                      src={post.image} 
+                      alt="Post media" 
+                      className="w-full h-auto object-contain block" 
+                    />
+                  </div>
                 )}
 
                 <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs text-stone-500">
@@ -324,7 +356,7 @@ export default function Home({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by username..."
+            placeholder="Search by name or username..."
             className="w-full px-3 py-2 bg-stone-50 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
           />
 
@@ -332,8 +364,10 @@ export default function Home({
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {searchResults.length > 0 ? (
                 searchResults.map((user) => {
-                  const targetName = typeof user === 'object' ? user.username || user.name : user;
-                  const targetId = extractId(user);
+                  const matchedUser = safeAllUsers.find((u) => extractId(u) === extractId(user) || extractUsername(u) === extractUsername(user)) || user;
+                  const targetName = extractUsername(matchedUser);
+                  const targetId = extractId(matchedUser);
+                  
                   const isFriend = safeFriends.some((f) => extractId(f) === targetId || extractUsername(f) === targetName);
 
                   const hasSentRequest = (friendRequests || []).some((req) => {
@@ -353,35 +387,35 @@ export default function Home({
                   return (
                     <div key={targetId || targetName} className="flex items-center justify-between p-2 hover:bg-stone-50 rounded-lg">
                       <button
-                        onClick={() => onViewProfile && onViewProfile(user)}
+                        onClick={() => onViewProfile && onViewProfile(matchedUser)}
                         className="text-sm text-stone-700 font-medium hover:text-amber-600 cursor-pointer"
                       >
                         @{targetName}
                       </button>
                       {isFriend ? (
                         <button
-                          onClick={() => onRemoveFriend && onRemoveFriend(user)}
+                          onClick={() => onRemoveFriend && onRemoveFriend(matchedUser)}
                           className="text-xs text-stone-400 hover:text-red-600 px-2 py-1 cursor-pointer transition"
                         >
                           Remove
                         </button>
                       ) : hasSentRequest ? (
                         <button
-                          onClick={() => onCancelRequest && onCancelRequest(user)}
+                          onClick={() => onCancelRequest && onCancelRequest(matchedUser)}
                           className="text-xs text-stone-400 hover:text-stone-600 px-2 py-1 cursor-pointer italic transition"
                         >
                           Pending
                         </button>
                       ) : hasReceivedRequest ? (
                         <button
-                          onClick={() => onAcceptFriend && onAcceptFriend(user)}
+                          onClick={() => onAcceptFriend && onAcceptFriend(matchedUser)}
                           className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-lg font-medium cursor-pointer transition"
                         >
                           Accept
                         </button>
                       ) : (
                         <button
-                          onClick={() => onRequestFriend && onRequestFriend(user)}
+                          onClick={() => onRequestFriend && onRequestFriend(matchedUser)}
                           className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-200 px-2 py-1 rounded-lg font-medium cursor-pointer transition"
                         >
                           + Add
@@ -406,19 +440,26 @@ export default function Home({
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {safeFriends.length > 0 ? (
               safeFriends.map((friend) => {
-                const friendName = extractUsername(friend);
-                const friendId = extractId(friend);
+                const friendObj = safeAllUsers.find(
+                  (u) =>
+                    extractId(u) === extractId(friend) ||
+                    extractUsername(u) === extractUsername(friend) ||
+                    (typeof u === 'object' && String(u.username || '') === String(friend))
+                ) || friend;
+
+                const friendName = extractUsername(friendObj);
+                const friendId = extractId(friendObj);
 
                 return (
                   <div key={friendId || friendName} className="flex items-center justify-between p-2 hover:bg-stone-50 rounded-lg">
                     <button
-                      onClick={() => onViewProfile && onViewProfile(friend)}
+                      onClick={() => onViewProfile && onViewProfile(friendObj)}
                       className="text-sm text-stone-700 font-medium hover:text-amber-600 cursor-pointer"
                     >
                       @{friendName}
                     </button>
                     <button
-                      onClick={() => onRemoveFriend && onRemoveFriend(friend)}
+                      onClick={() => onRemoveFriend && onRemoveFriend(friendObj)}
                       className="text-xs text-stone-400 hover:text-red-600 px-2 py-1 cursor-pointer transition"
                     >
                       Remove

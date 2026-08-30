@@ -22,9 +22,9 @@ import {
   query, 
   orderBy,
   arrayUnion,
-  arrayRemove,
   where,
-  or
+  or,
+  getDocs
 } from 'firebase/firestore';
 
 export default function App() {
@@ -44,7 +44,28 @@ export default function App() {
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
 
-  const currentUserId = currentUser ? String(currentUser.id || currentUser.uid || currentUser.username || '') : '';
+  const getUserId = (user) => {
+    if (!user) return '';
+    if (typeof user === 'object') {
+      return String(user.id || user.uid || user._id || user.username || user.name || '');
+    }
+    return String(user);
+  };
+
+  const getUserName = (user) => {
+    if (!user) return '';
+    if (typeof user === 'object') {
+      return String(user.name || user.displayName || user.username || getUserId(user));
+    }
+    return String(user);
+  };
+
+  const getUserAvatar = (userObj) => {
+    if (typeof userObj !== 'object' || !userObj) return '';
+    return userObj.avatarUrl || userObj.avatar || userObj.profilePicture || userObj.image || '';
+  };
+
+  const currentUserId = getUserId(currentUser);
 
   const handleTabChange = (tabId) => {
     if (tabId === 'profile') {
@@ -53,24 +74,14 @@ export default function App() {
     setActiveTab(tabId);
   };
 
-  const getUserAvatar = (userObj) => {
-    if (typeof userObj !== 'object' || !userObj) return '';
-    return userObj.avatarUrl || userObj.avatar || userObj.profilePicture || userObj.image || '';
-  };
-
-  const getUserId = (user) => {
-    if (!user) return '';
-    if (typeof user === 'object') return String(user.id || user.uid || user._id || user.username || user.name || '');
-    return String(user);
-  };
-
   const formatUserPayload = (userObj) => {
     const id = getUserId(userObj);
     if (typeof userObj === 'object' && userObj !== null) {
+      const displayName = getUserName(userObj);
       return {
         id: String(id),
-        username: String(userObj.username || userObj.name || id),
-        name: String(userObj.name || userObj.username || id),
+        username: String(userObj.username || id),
+        name: String(displayName),
         avatarUrl: getUserAvatar(userObj)
       };
     }
@@ -95,7 +106,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Live Listener for All Registered Users & Synced Current User
+  // 2. Live Listener for Registered Users & Session Sync
   useEffect(() => {
     const unsubscribeUsers = onSnapshot(
       collection(db, 'users'), 
@@ -208,15 +219,15 @@ export default function App() {
     setActiveTab('profile');
   };
 
-  const addPost = async (text, isPrivate, image = null) => {
+  const addPost = async (text, isPrivate = false, image = null) => {
     if (!text.trim() && !image) return;
     
-    const authorName = typeof currentUser === 'object' ? currentUser.name || currentUser.username : currentUser;
+    const authorName = getUserName(currentUser);
     const authorAvatar = getUserAvatar(currentUser);
 
     await addDoc(collection(db, 'posts'), {
       text,
-      isPrivate,
+      isPrivate: Boolean(isPrivate),
       image,
       author: authorName,
       authorId: currentUserId,
@@ -277,12 +288,15 @@ export default function App() {
     
     try {
       const userRef = doc(db, 'users', currentUserId);
-      const avatar = updatedData.avatarUrl || updatedData.avatar || updatedData.profilePicture || updatedData.image || '';
+      const avatar = updatedData.avatarUrl || updatedData.avatar || updatedData.profilePicture || updatedData.image || getUserAvatar(currentUser);
+      const updatedDisplayName = updatedData.name || updatedData.displayName || getUserName(currentUser);
 
       const mergedData = {
         ...currentUser,
         ...updatedData,
         id: currentUserId,
+        name: updatedDisplayName,
+        displayName: updatedDisplayName,
         avatarUrl: avatar,
         avatar: avatar,
         profilePicture: avatar,
@@ -292,6 +306,16 @@ export default function App() {
       await setDoc(userRef, mergedData, { merge: true });
       setCurrentUser(mergedData);
       localStorage.setItem('catchup_session', JSON.stringify(mergedData));
+
+      const userPostsQuery = query(collection(db, 'posts'), where('authorId', '==', currentUserId));
+      const querySnapshot = await getDocs(userPostsQuery);
+      const updates = querySnapshot.docs.map((docSnap) => 
+        updateDoc(doc(db, 'posts', docSnap.id), {
+          author: updatedDisplayName,
+          authorAvatar: avatar
+        })
+      );
+      await Promise.all(updates);
     } catch (error) {
       console.error('Error updating user profile in Firestore:', error);
     }
@@ -364,7 +388,6 @@ export default function App() {
     }
   };
 
-  // Robust Unfriend Handler supporting objects or string IDs
   const handleRemoveFriend = async (targetUserOrId) => {
     if (!currentUserId || !targetUserOrId) return;
 
@@ -372,7 +395,6 @@ export default function App() {
     if (!targetId) return;
 
     try {
-      // 1. Clean Current User's Friends array
       const currentUserRef = doc(db, 'users', currentUserId);
       const currentUserSnap = await getDoc(currentUserRef);
 
@@ -384,7 +406,6 @@ export default function App() {
         await updateDoc(currentUserRef, { friends: updatedFriends });
       }
 
-      // 2. Clean Target Friend's Friends array
       const targetFriendRef = doc(db, 'users', targetId);
       const targetSnap = await getDoc(targetFriendRef);
 
@@ -401,8 +422,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-800 font-sans pb-16 antialiased selection:bg-amber-200">
-      {!currentUser && <AuthModal onAuthSuccess={handleAuthSuccess} />}
+    <div className="min-h-screen w-full bg-stone-50 text-stone-800 font-sans antialiased selection:bg-amber-200 overflow-x-hidden">
+      {!currentUser && <AuthModal onAuthSuccess={handleAuthSuccess} allUsers={allUsers} />}
 
       {currentUser && (
         <div className="w-full flex flex-col min-h-screen">
@@ -417,7 +438,7 @@ export default function App() {
             onDeclineFriend={handleDeclineFriend}
           />
 
-          <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 flex-1 space-y-4 sm:space-y-6">
+          <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-20 flex-1">
             <div className="w-full">
               {activeTab === 'home' && (
                 <Home
@@ -444,8 +465,6 @@ export default function App() {
                   posts={posts}
                   addPost={addPost}
                   currentUser={currentUser}
-                  friends={friends}
-                  onReact={handleReaction}
                   onDeletePost={handleDeletePost}
                 />
               )}
@@ -477,6 +496,7 @@ export default function App() {
                 <Profile
                   profileUser={activeViewedUser || currentUser}
                   currentUser={currentUser}
+                  allUsers={allUsers}
                   onUpdateProfile={handleUpdateProfile}
                   friends={friends}
                   friendRequests={friendRequests}
