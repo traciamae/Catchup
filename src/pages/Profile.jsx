@@ -309,8 +309,8 @@ export default function Profile({
                   {typeof displayUser === 'object' && displayUser?.bio
                     ? `“${displayUser.bio}”`
                     : isSelf
-                    ? 'No bio added yet. Click "Edit Profile" to write a quick introduction.'
-                    : 'This user hasn’t written a bio yet.'}
+                      ? 'No bio added yet. Click "Edit Profile" to write a quick introduction.'
+                      : 'This user hasn’t written a bio yet.'}
                 </p>
               </div>
             )}

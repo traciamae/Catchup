@@ -3,25 +3,39 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+
+  html,
+  body {
     margin: 0;
     padding: 0;
     width: 100%;
     min-height: 100%;
-    overflow-x: hidden; /* Stops horizontal scrolling on small screens */
+    overflow-x: hidden;
+    /* Stops horizontal scrolling on small screens */
     background-color: #FDFBF7;
     color: #292524;
     -webkit-tap-highlight-color: transparent;
   }
 
   /* Ensures all images and media naturally scale down */
-  img, video, canvas, svg {
+  img,
+  video,
+  canvas,
+  svg {
     max-width: 100%;
     height: auto;
   }
 
   /* Prevents long text/links from stretching the screen width */
-  p, h1, h2, h3, h4, h5, h6, span, a {
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  a {
     overflow-wrap: break-word;
     word-break: break-word;
   }

@@ -15,10 +15,10 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onViewPro
     return userObj.avatarUrl || userObj.avatar || userObj.profilePicture || userObj.image || '';
   };
 
-  const userName = typeof currentUser === 'object' 
-    ? currentUser?.name || currentUser?.username || currentUser?.id 
+  const userName = typeof currentUser === 'object'
+    ? currentUser?.name || currentUser?.username || currentUser?.id
     : currentUser;
-    
+
   const userAvatar = getAvatarUrl(currentUser);
 
   return (
@@ -38,11 +38,10 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onViewPro
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
-                activeTab === item.id
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${activeTab === item.id
                   ? 'bg-white text-amber-600 shadow-sm'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-white/50'
-              }`}
+                }`}
             >
               <span>{item.icon}</span>
               <span>{item.label}</span>
@@ -89,11 +88,10 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onViewPro
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center py-1.5 px-3 rounded-xl transition-all cursor-pointer ${
-              activeTab === item.id
+            className={`flex flex-col items-center py-1.5 px-3 rounded-xl transition-all cursor-pointer ${activeTab === item.id
                 ? 'bg-amber-500/20 text-amber-400 font-bold'
                 : 'text-stone-400 hover:text-white'
-            }`}
+              }`}
           >
             <span className="text-base">{item.icon}</span>
             <span className="text-[9px] mt-0.5">{item.label}</span>

@@ -14,7 +14,7 @@ export default function PostCard({ post, onReact, isArchived = false, hoursLeft 
               </span>
             )}
           </div>
-          
+
           {!isArchived ? (
             <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-semibold">
               Expires in {hoursLeft}h
@@ -27,9 +27,9 @@ export default function PostCard({ post, onReact, isArchived = false, hoursLeft 
         </div>
 
         <div className="bg-stone-100 p-2 rounded-lg mb-3">
-          <img 
-            src={post.imageUrl} 
-            alt="Memory capture" 
+          <img
+            src={post.imageUrl}
+            alt="Memory capture"
             className={`w-full h-48 object-cover rounded ${isArchived ? 'grayscale-[25%]' : ''}`}
             onError={(e) => {
               e.target.src = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500";
@@ -41,7 +41,7 @@ export default function PostCard({ post, onReact, isArchived = false, hoursLeft 
       </div>
 
       <div className="flex items-center gap-2 pt-3 border-t border-stone-100">
-        <button 
+        <button
           onClick={() => onReact && onReact(post.id, 'heart')}
           disabled={isArchived}
           className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -50,7 +50,7 @@ export default function PostCard({ post, onReact, isArchived = false, hoursLeft 
           <span>{post.reactions?.heart || 0}</span>
         </button>
 
-        <button 
+        <button
           onClick={() => onReact && onReact(post.id, 'sparkle')}
           disabled={isArchived}
           className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -59,7 +59,7 @@ export default function PostCard({ post, onReact, isArchived = false, hoursLeft 
           <span>{post.reactions?.sparkle || 0}</span>
         </button>
 
-        <button 
+        <button
           onClick={() => onReact && onReact(post.id, 'flower')}
           disabled={isArchived}
           className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

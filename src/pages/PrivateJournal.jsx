@@ -120,10 +120,10 @@ export default function PrivateJournal({
 
           {image && (
             <div className="relative inline-block w-full overflow-hidden rounded-lg border border-stone-200">
-              <img 
-                src={image} 
-                alt="Preview" 
-                className="w-full h-auto object-contain block" 
+              <img
+                src={image}
+                alt="Preview"
+                className="w-full h-auto object-contain block"
               />
               <button
                 type="button"

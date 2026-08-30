@@ -157,10 +157,10 @@ export default function SharedFeed({ posts = [], addPost, currentUser = '', onDe
 
                 {post.image && (
                   <div className="w-full overflow-hidden rounded-xl border border-stone-100 bg-stone-50">
-                    <img 
-                      src={post.image} 
-                      alt="Post preview" 
-                      className="w-full h-auto object-contain block" 
+                    <img
+                      src={post.image}
+                      alt="Post preview"
+                      className="w-full h-auto object-contain block"
                     />
                   </div>
                 )}

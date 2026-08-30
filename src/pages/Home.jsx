@@ -111,17 +111,17 @@ export default function Home({
   // Matches both display name and username in search query
   const searchResults = cleanedQuery
     ? safeAllUsers.filter((u) => {
-        const userId = extractId(u);
-        const userName = extractUsername(u);
+      const userId = extractId(u);
+      const userName = extractUsername(u);
 
-        if (userId === currentUserId || userName === currentUsername) return false;
+      if (userId === currentUserId || userName === currentUsername) return false;
 
-        const nameMatch = (typeof u === 'object' ? u.name || '' : '').toLowerCase().includes(cleanedQuery);
-        const usernameMatch = (typeof u === 'object' ? u.username || '' : '').toLowerCase().includes(cleanedQuery);
-        const idMatch = userId.toLowerCase().includes(cleanedQuery);
+      const nameMatch = (typeof u === 'object' ? u.name || '' : '').toLowerCase().includes(cleanedQuery);
+      const usernameMatch = (typeof u === 'object' ? u.username || '' : '').toLowerCase().includes(cleanedQuery);
+      const idMatch = userId.toLowerCase().includes(cleanedQuery);
 
-        return nameMatch || usernameMatch || idMatch;
-      })
+      return nameMatch || usernameMatch || idMatch;
+    })
     : [];
 
   const handleCommentChange = (postId, text) => {
@@ -228,17 +228,17 @@ export default function Home({
 
                 {post.image && (
                   <div className="w-full overflow-hidden rounded-xl border border-stone-100 bg-stone-50">
-                    <img 
-                      src={post.image} 
-                      alt="Post media" 
-                      className="w-full h-auto object-contain block" 
+                    <img
+                      src={post.image}
+                      alt="Post media"
+                      className="w-full h-auto object-contain block"
                     />
                   </div>
                 )}
 
                 <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs text-stone-500">
-                  <button 
-                    onClick={() => onReact && onReact(post.id, 'heart')} 
+                  <button
+                    onClick={() => onReact && onReact(post.id, 'heart')}
                     className="hover:text-red-500 transition flex items-center space-x-1 cursor-pointer"
                   >
                     <span>❤️</span>
@@ -303,7 +303,7 @@ export default function Home({
 
       {/* Sidebar Controls */}
       <div className="space-y-6">
-        
+
         {/* Friend Requests Section */}
         {incomingRequests.length > 0 && (
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200/80 space-y-3">
@@ -367,7 +367,7 @@ export default function Home({
                   const matchedUser = safeAllUsers.find((u) => extractId(u) === extractId(user) || extractUsername(u) === extractUsername(user)) || user;
                   const targetName = extractUsername(matchedUser);
                   const targetId = extractId(matchedUser);
-                  
+
                   const isFriend = safeFriends.some((f) => extractId(f) === targetId || extractUsername(f) === targetName);
 
                   const hasSentRequest = (friendRequests || []).some((req) => {

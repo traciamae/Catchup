@@ -30,7 +30,7 @@ export default function CreatePostForm({ addPost, defaultPrivate = false }) {
   return (
     <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-5 rounded-xl border border-stone-200 shadow-sm mb-6">
       <h3 className="text-base font-bold text-stone-800 mb-3">Snap a New Memory</h3>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <input
           type="text"

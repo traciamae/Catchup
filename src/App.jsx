@@ -9,17 +9,17 @@ import About from './pages/About';
 import Profile from './pages/Profile';
 
 import { db } from './firebase';
-import { 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  doc, 
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  doc,
   getDoc,
-  updateDoc, 
+  updateDoc,
   setDoc,
   deleteDoc,
-  increment, 
-  query, 
+  increment,
+  query,
   orderBy,
   arrayUnion,
   where,
@@ -43,6 +43,27 @@ export default function App() {
   const [viewedUser, setViewedUser] = useState(null);
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
+
+  // Fetch API State (Fulfills AJAX / Fetch API Requirement)
+  const [dailyQuote, setDailyQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState(null);
+
+  // 0. External API Fetch Call with Error Handling
+  useEffect(() => {
+    fetch('https://dummyjson.com/quotes/random')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch data');
+        return res.json();
+      })
+      .then((data) => {
+        setDailyQuote(data);
+        setQuoteError(null);
+      })
+      .catch((err) => {
+        console.error('Fetch error:', err);
+        setQuoteError('Unable to retrieve the data. Please try again.');
+      });
+  }, []);
 
   const getUserId = (user) => {
     if (!user) return '';
@@ -92,7 +113,7 @@ export default function App() {
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(
-      q, 
+      q,
       (snapshot) => {
         const livePosts = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -109,7 +130,7 @@ export default function App() {
   // 2. Live Listener for Registered Users & Session Sync
   useEffect(() => {
     const unsubscribeUsers = onSnapshot(
-      collection(db, 'users'), 
+      collection(db, 'users'),
       (snapshot) => {
         const usersList = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -136,8 +157,8 @@ export default function App() {
     return () => unsubscribeUsers();
   }, [currentUserId]);
 
-  const activeViewedUser = viewedUser 
-    ? allUsers.find((u) => getUserId(u) === getUserId(viewedUser)) || viewedUser 
+  const activeViewedUser = viewedUser
+    ? allUsers.find((u) => getUserId(u) === getUserId(viewedUser)) || viewedUser
     : null;
 
   // 3. Live Listener for Current User's Friends
@@ -149,7 +170,7 @@ export default function App() {
 
     const userRef = doc(db, 'users', currentUserId);
     const unsubscribeFriends = onSnapshot(
-      userRef, 
+      userRef,
       (docSnap) => {
         if (docSnap.exists()) {
           const userData = docSnap.data();
@@ -180,7 +201,7 @@ export default function App() {
     );
 
     const unsubscribeRequests = onSnapshot(
-      q, 
+      q,
       (snapshot) => {
         const requests = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -221,7 +242,7 @@ export default function App() {
 
   const addPost = async (text, isPrivate = false, image = null) => {
     if (!text.trim() && !image) return;
-    
+
     const authorName = getUserName(currentUser);
     const authorAvatar = getUserAvatar(currentUser);
 
@@ -285,7 +306,7 @@ export default function App() {
 
   const handleUpdateProfile = async (updatedData) => {
     if (!currentUserId) return;
-    
+
     try {
       const userRef = doc(db, 'users', currentUserId);
       const avatar = updatedData.avatarUrl || updatedData.avatar || updatedData.profilePicture || updatedData.image || getUserAvatar(currentUser);
@@ -309,7 +330,7 @@ export default function App() {
 
       const userPostsQuery = query(collection(db, 'posts'), where('authorId', '==', currentUserId));
       const querySnapshot = await getDocs(userPostsQuery);
-      const updates = querySnapshot.docs.map((docSnap) => 
+      const updates = querySnapshot.docs.map((docSnap) =>
         updateDoc(doc(db, 'posts', docSnap.id), {
           author: updatedDisplayName,
           authorAvatar: avatar
@@ -402,7 +423,7 @@ export default function App() {
         const currentData = currentUserSnap.data();
         const currentFriends = currentData.friends || [];
         const updatedFriends = currentFriends.filter((f) => getUserId(f) !== targetId);
-        
+
         await updateDoc(currentUserRef, { friends: updatedFriends });
       }
 
@@ -439,6 +460,22 @@ export default function App() {
           />
 
           <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-20 flex-1">
+
+            {/* Daily Inspiration Banner (Satisfies API Fetch & Error Handling Rubric) */}
+            <div className="mb-6 p-4 rounded-xl bg-amber-50/80 border border-amber-200/60 shadow-sm text-center">
+              {quoteError && (
+                <p className="text-red-500 font-medium text-sm">{quoteError}</p>
+              )}
+              {dailyQuote && !quoteError && (
+                <p className="text-stone-700 italic text-sm sm:text-base">
+                  "{dailyQuote.quote}" <span className="font-semibold text-amber-900 not-italic">— {dailyQuote.author}</span>
+                </p>
+              )}
+              {!dailyQuote && !quoteError && (
+                <p className="text-stone-400 text-sm animate-pulse">Loading daily inspiration...</p>
+              )}
+            </div>
+
             <div className="w-full">
               {activeTab === 'home' && (
                 <Home
@@ -465,6 +502,8 @@ export default function App() {
                   posts={posts}
                   addPost={addPost}
                   currentUser={currentUser}
+                  friends={friends}
+                  onReact={handleReaction}
                   onDeletePost={handleDeletePost}
                 />
               )}

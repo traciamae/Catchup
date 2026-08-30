@@ -60,8 +60,8 @@ export default function About() {
             Where Personal Memories Meet Community Connection
           </h1>
           <p className="text-stone-300 text-sm leading-relaxed max-w-xl">
-            CatchUp is a unified platform built for personal reflection and social sharing. 
-            Maintain a secure private journal, revisit memories on a photo archive calendar, 
+            CatchUp is a unified platform built for personal reflection and social sharing.
+            Maintain a secure private journal, revisit memories on a photo archive calendar,
             or share updates with your community.
           </p>
         </div>

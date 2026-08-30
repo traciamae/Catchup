@@ -114,11 +114,10 @@ export default function Archive({
         <div className="flex border-b border-stone-200 gap-6 text-sm font-medium">
           <button
             onClick={() => setActiveTab('expired')}
-            className={`pb-3 transition relative cursor-pointer ${
-              activeTab === 'expired'
+            className={`pb-3 transition relative cursor-pointer ${activeTab === 'expired'
                 ? 'text-amber-600 font-semibold border-b-2 border-amber-600'
                 : 'text-stone-500 hover:text-stone-800'
-            }`}
+              }`}
           >
             Memories (24h+)
             <span className="ml-2 text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full">
@@ -128,11 +127,10 @@ export default function Archive({
 
           <button
             onClick={() => setActiveTab('deleted')}
-            className={`pb-3 transition relative cursor-pointer ${
-              activeTab === 'deleted'
+            className={`pb-3 transition relative cursor-pointer ${activeTab === 'deleted'
                 ? 'text-amber-600 font-semibold border-b-2 border-amber-600'
                 : 'text-stone-500 hover:text-stone-800'
-            }`}
+              }`}
           >
             Trash Bin
             <span className="ml-2 text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full">
@@ -150,12 +148,12 @@ export default function Archive({
             const isOwner = isPostOwner(post);
             const formattedDate = post.createdAt
               ? new Date(post.createdAt).toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
               : 'Unknown date';
 
             return (
