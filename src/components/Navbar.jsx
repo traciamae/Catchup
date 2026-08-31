@@ -22,7 +22,10 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onViewPro
   const userAvatar = getAvatarUrl(currentUser);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-stone-200/80 shadow-xs">
+    <header 
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-stone-200/80 shadow-xs"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand Logo */}
         <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setActiveTab('home')}>
@@ -38,10 +41,11 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onViewPro
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${activeTab === item.id
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                activeTab === item.id
                   ? 'bg-white text-amber-600 shadow-sm'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-white/50'
-                }`}
+              }`}
             >
               <span>{item.icon}</span>
               <span>{item.label}</span>
@@ -83,15 +87,19 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onViewPro
       </div>
 
       {/* Mobile Floating Bottom Bar */}
-      <div className="md:hidden fixed bottom-3 left-3 right-3 z-50 bg-stone-900/90 backdrop-blur-lg rounded-2xl p-1.5 flex justify-around border border-stone-800 shadow-2xl">
+      <div 
+        style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        className="md:hidden fixed bottom-3 left-3 right-3 z-50 bg-stone-900/90 backdrop-blur-lg rounded-2xl p-1.5 flex justify-around border border-stone-800 shadow-2xl"
+      >
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center py-1.5 px-3 rounded-xl transition-all cursor-pointer ${activeTab === item.id
+            className={`flex flex-col items-center py-1.5 px-3 rounded-xl transition-all cursor-pointer ${
+              activeTab === item.id
                 ? 'bg-amber-500/20 text-amber-400 font-bold'
                 : 'text-stone-400 hover:text-white'
-              }`}
+            }`}
           >
             <span className="text-base">{item.icon}</span>
             <span className="text-[9px] mt-0.5">{item.label}</span>

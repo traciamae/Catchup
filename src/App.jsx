@@ -459,9 +459,9 @@ export default function App() {
             onDeclineFriend={handleDeclineFriend}
           />
 
-          <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-20 flex-1">
+          <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-24 sm:pb-12 flex-1">
 
-            {/* Daily Inspiration Banner (Satisfies API Fetch & Error Handling Rubric) */}
+            {/* Daily Inspiration Banner */}
             <div className="mb-6 p-4 rounded-xl bg-amber-50/80 border border-amber-200/60 shadow-sm text-center">
               {quoteError && (
                 <p className="text-red-500 font-medium text-sm">{quoteError}</p>
