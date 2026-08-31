@@ -403,7 +403,7 @@ export default function App() {
 
     const requestId = `${currentUserId}_${targetId}`;
     try {
-      await deleteDoc(doc(db, 'friendRequests', requestId));
+      await deleteDoc(doc(doc(db, 'friendRequests', requestId)));
     } catch (error) {
       console.error('Error canceling friend request:', error);
     }
@@ -443,26 +443,30 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-stone-50 text-stone-800 font-sans antialiased selection:bg-amber-200 overflow-x-hidden">
+    <div className="min-h-screen w-full bg-stone-50 text-stone-800 font-sans antialiased selection:bg-amber-200">
       {!currentUser && <AuthModal onAuthSuccess={handleAuthSuccess} allUsers={allUsers} />}
 
       {currentUser && (
         <div className="w-full flex flex-col min-h-screen">
-          <Navbar
-            activeTab={activeTab}
-            setActiveTab={handleTabChange}
-            currentUser={currentUser}
-            onViewProfile={handleViewProfile}
-            onLogout={handleLogout}
-            friendRequests={friendRequests}
-            onAcceptFriend={handleAcceptFriend}
-            onDeclineFriend={handleDeclineFriend}
-          />
+          <header className="w-full bg-white border-b border-stone-200/80 sticky top-0 z-40">
+            <div className="max-w-7xl mx-auto">
+              <Navbar
+                activeTab={activeTab}
+                setActiveTab={handleTabChange}
+                currentUser={currentUser}
+                onViewProfile={handleViewProfile}
+                onLogout={handleLogout}
+                friendRequests={friendRequests}
+                onAcceptFriend={handleAcceptFriend}
+                onDeclineFriend={handleDeclineFriend}
+              />
+            </div>
+          </header>
 
-          <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-24 sm:pb-12 flex-1">
+          <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 sm:pb-12 flex-1">
 
             {/* Daily Inspiration Banner */}
-            <div className="mb-6 p-4 rounded-xl bg-amber-50/80 border border-amber-200/60 shadow-sm text-center">
+            <div className="mb-6 p-4 rounded-xl bg-amber-50/80 border border-amber-200/60 shadow-xs text-center">
               {quoteError && (
                 <p className="text-red-500 font-medium text-sm">{quoteError}</p>
               )}
