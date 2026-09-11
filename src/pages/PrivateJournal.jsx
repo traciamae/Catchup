@@ -1,214 +1,362 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react'
+import PostCard from '../components/PostCard'
 
 export default function PrivateJournal({
   posts = [],
   addPost,
   currentUser = '',
   onReact,
-  onDeletePost,
+  onDeletePost
 }) {
-  const [text, setText] = useState('');
-  const [image, setImage] = useState(null);
-  const fileInputRef = useRef(null);
+  const [text, setText] = useState('')
+  const [image, setImage] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  // Safely extract explicit document ID / user ID
-  const extractUserId = (user) => {
-    if (!user) return '';
+  const fileInputRef = useRef(null)
+
+  const getUserId = (user) => {
+    if (!user) return ''
+
     if (typeof user === 'object') {
-      return String(user.id || user.uid || user._id || user.username || user.name || '');
+      return String(
+        user.id ||
+        user.uid ||
+        user._id ||
+        user.username ||
+        user.name ||
+        ''
+      ).toLowerCase()
     }
-    return String(user);
-  };
 
-  // Safely extract username or name string for secondary checks
-  const extractUsername = (user) => {
-    if (!user) return '';
+    return String(user).toLowerCase()
+  }
+
+  const getUsername = (user) => {
+    if (!user) return ''
+
     if (typeof user === 'object') {
-      return String(user.username || user.name || user.displayName || user.id || '');
+      return String(
+        user.name ||
+        user.displayName ||
+        user.username ||
+        user.id ||
+        ''
+      ).toLowerCase()
     }
-    return String(user);
-  };
 
-  const currentUserId = extractUserId(currentUser);
-  const currentUsername = extractUsername(currentUser);
+    return String(user).toLowerCase()
+  }
 
-  // Format ISO strings or timestamps into local Date & Time
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'Personal Note';
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return 'Personal Note';
-    return date.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
+  const currentUserId = getUserId(currentUser)
+  const currentUsername = getUsername(currentUser)
 
   const clearImage = () => {
-    setImage(null);
+    setImage(null)
+
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = ''
     }
-  };
+  }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!text.trim() && !image) return;
-    if (addPost) {
-      addPost(text, true, image);
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+
+    if (loading) return
+
+    if (!text.trim() && !image) {
+      return
     }
-    setText('');
-    clearImage();
-  };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setImage(reader.result);
-      reader.readAsDataURL(file);
+    if (!addPost) {
+      console.error('addPost function is not available.')
+      return
     }
-  };
 
-  // Centralized ownership match with case-insensitive validation
-  const isPostAuthor = (p) => {
-    if (!p) return false;
-    if (!currentUserId && !currentUsername) return false;
+    setLoading(true)
+
+    try {
+      await addPost(
+        text.trim(),
+        true,
+        image
+      )
+
+      setText('')
+      clearImage()
+    } catch (error) {
+      console.error(
+        'Error creating journal entry:',
+        error
+      )
+
+      alert(
+        'Unable to save the journal entry. Please try again.'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file.')
+      event.target.value = ''
+      return
+    }
+
+    // Maximum image size: 5 MB
+    if (file.size > 5 * 1024 * 1024) {
+      alert(
+        'Please choose an image smaller than 5 MB.'
+      )
+
+      event.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+
+    reader.onloadend = () => {
+      setImage(reader.result)
+    }
+
+    reader.onerror = () => {
+      alert(
+        'Unable to read the selected image.'
+      )
+
+      event.target.value = ''
+    }
+
+    reader.readAsDataURL(file)
+  }
+
+  const isPostAuthor = (post) => {
+    if (!post) {
+      return false
+    }
+
+    if (!currentUserId && !currentUsername) {
+      return false
+    }
 
     const postAuthorId = String(
-      p.authorId || (typeof p.authorObj === 'object' && p.authorObj ? p.authorObj.id || p.authorObj.uid : '') || ''
-    ).toLowerCase();
+      post.authorId || ''
+    ).toLowerCase()
 
     const postAuthorName = String(
-      p.author || (typeof p.authorObj === 'object' && p.authorObj ? p.authorObj.name || p.authorObj.username : '') || ''
-    ).toLowerCase();
+      post.author || ''
+    ).toLowerCase()
 
-    const cId = currentUserId.toLowerCase();
-    const cName = currentUsername.toLowerCase();
+    return (
+      (
+        currentUserId &&
+        postAuthorId === currentUserId
+      ) ||
+      (
+        currentUsername &&
+        postAuthorName === currentUsername
+      ) ||
+      (
+        currentUserId &&
+        postAuthorName === currentUserId
+      ) ||
+      (
+        currentUsername &&
+        postAuthorId === currentUsername
+      )
+    )
+  }
 
-    const isMatchById = Boolean(cId && postAuthorId && cId === postAuthorId);
-    const isMatchByName = Boolean(cName && postAuthorName && cName === postAuthorName);
-    const isMatchCross1 = Boolean(cId && postAuthorName && cId === postAuthorName);
-    const isMatchCross2 = Boolean(cName && postAuthorId && cName === postAuthorId);
+  // Show only private entries belonging to the current user
+  const journalEntries = (
+    Array.isArray(posts)
+      ? posts
+      : []
+  )
+    .filter((post) => {
+      if (
+        post.isDeleted ||
+        !post.isPrivate
+      ) {
+        return false
+      }
 
-    return isMatchById || isMatchByName || isMatchCross1 || isMatchCross2;
-  };
+      return isPostAuthor(post)
+    })
+    .sort((a, b) => {
+      const dateA = new Date(
+        a.createdAt || 0
+      ).getTime()
 
-  // Filter posts that are private, not soft-deleted, and owned by the current user
-  const journalEntries = posts.filter((p) => {
-    if (p.isDeleted || !p.isPrivate) return false;
-    return isPostAuthor(p);
-  });
+      const dateB = new Date(
+        b.createdAt || 0
+      ).getTime()
+
+      return dateB - dateA
+    })
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      {/* Create Journal Entry Card */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200/80">
-        <h2 className="text-lg font-semibold text-stone-800 mb-3">Private Journal</h2>
+    <div className="mx-auto w-full max-w-3xl space-y-6">
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Create Journal Entry */}
+      <div className="rounded-2xl border border-stone-200/80 bg-white p-5 shadow-sm">
+
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold text-stone-800">
+            Private Journal
+          </h2>
+
+          <p className="mt-1 text-xs text-stone-400">
+            Write personal notes that are only visible
+            in your private journal.
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
+          {/* Text */}
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(event) => {
+              setText(event.target.value)
+            }}
             placeholder="Write a private note to yourself..."
-            className="w-full p-3 bg-stone-50 rounded-xl border border-stone-200 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition resize-none text-stone-700 text-sm"
             rows={3}
+            disabled={loading}
+            className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
           />
 
+          {/* Image Preview */}
           {image && (
-            <div className="relative inline-block w-full overflow-hidden rounded-lg border border-stone-200">
+            <div className="relative w-full overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+
               <img
                 src={image}
-                alt="Preview"
-                className="w-full h-auto object-contain block"
+                alt="Journal image preview"
+                className="block max-h-80 w-full object-contain"
               />
+
               <button
                 type="button"
                 onClick={clearImage}
-                className="absolute top-2 right-2 bg-stone-900/70 hover:bg-stone-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs cursor-pointer transition"
+                disabled={loading}
+                aria-label="Remove selected image"
+                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-stone-900/70 text-xs text-white transition hover:bg-stone-900 disabled:opacity-50"
               >
                 ✕
               </button>
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-2">
-            <label className="cursor-pointer text-xs font-medium text-stone-500 hover:text-stone-700 transition flex items-center gap-1">
-              <span>📷</span> Attach Photo
+          {/* Form Actions */}
+          <div className="flex flex-col items-start justify-between gap-3 pt-2 sm:flex-row sm:items-center">
+
+            <label className="flex cursor-pointer items-center gap-1 text-xs font-medium text-stone-500 transition hover:text-stone-700">
+              <span>📷</span>
+              Attach Photo
+
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
+                disabled={loading}
                 className="hidden"
               />
             </label>
+
             <button
               type="submit"
-              disabled={!text.trim() && !image}
-              className="px-5 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl transition cursor-pointer active:scale-95"
+              disabled={
+                loading ||
+                (!text.trim() && !image)
+              }
+              className="w-full rounded-xl bg-amber-600 px-5 py-2 text-xs font-semibold text-white transition hover:bg-amber-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 sm:w-auto"
             >
-              Save Entry
+              {loading
+                ? 'Saving...'
+                : 'Save Entry'}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Journal Entries List */}
+      {/* Journal Entries */}
       <div className="space-y-4">
+
         {journalEntries.length === 0 ? (
-          <div className="bg-white p-8 text-center rounded-2xl shadow-sm border border-stone-200/80">
-            <p className="text-sm text-stone-400">
-              No private notes yet. Write your first entry above!
+          <div className="rounded-2xl border border-stone-200/80 bg-white p-8 text-center shadow-sm">
+
+            <p className="text-sm font-medium text-stone-500">
+              No private notes yet.
+            </p>
+
+            <p className="mt-1 text-xs text-stone-400">
+              Write your first entry above!
             </p>
           </div>
         ) : (
-          journalEntries.map((post) => {
-            const isAuthor = isPostAuthor(post);
+          journalEntries.map((post) => (
+            <div
+              key={post.id}
+              className="space-y-2"
+            >
 
-            return (
-              <div
-                key={post.id || post._id}
-                className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200/80 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-stone-400 font-medium">
-                    {formatDate(post.createdAt)}
-                  </span>
+              {/* Journal Date */}
+              <div className="px-1 text-xs text-stone-400">
+                {post.createdAt
+                  ? new Date(
+                      post.createdAt
+                    ).toLocaleString(
+                      undefined,
+                      {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      }
+                    )
+                  : 'Personal Note'}
+              </div>
 
-                  {isAuthor && onDeletePost && (
+              {/* Reusable PostCard */}
+              <PostCard
+                post={post}
+                onReact={onReact}
+                isArchived={false}
+              />
+
+              {/* Delete */}
+              {isPostAuthor(post) &&
+                onDeletePost && (
+                  <div className="flex justify-end px-1">
                     <button
-                      onClick={() => onDeletePost(post.id || post._id)}
-                      className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition font-medium cursor-pointer"
+                      type="button"
+                      onClick={() => {
+                        onDeletePost(post.id)
+                      }}
+                      className="rounded px-2 py-1 text-xs font-medium text-red-500 transition hover:bg-red-50 hover:text-red-700"
                     >
-                      Delete
+                      Delete Entry
                     </button>
-                  )}
-                </div>
-
-                {post.text && (
-                  <p className="text-stone-700 leading-relaxed whitespace-pre-line text-sm">
-                    {post.text}
-                  </p>
-                )}
-
-                {post.image && (
-                  <div className="w-full overflow-hidden rounded-xl border border-stone-100 bg-stone-50">
-                    <img
-                      src={post.image}
-                      alt="Journal attachment"
-                      className="w-full h-auto object-contain block"
-                    />
                   </div>
                 )}
-              </div>
-            );
-          })
+            </div>
+          ))
         )}
+
       </div>
     </div>
-  );
+  )
 }
