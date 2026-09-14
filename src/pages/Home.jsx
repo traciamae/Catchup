@@ -25,9 +25,14 @@ export default function Home({
   selectedTheme = 'All',
   setSelectedTheme,
   filteredApiQuotes = [],
+  dailyQuote = null,
   quoteLoading = false,
   quoteError = '',
-  fetchDailyQuote
+  fetchDailyQuote,
+
+  // Shared Affirmations
+  sharedQuotes = [],
+  onSendQuoteToFriend
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [openCommentPostId, setOpenCommentPostId] = useState(null)
@@ -55,6 +60,10 @@ export default function Home({
 
   const safeFilteredApiQuotes = Array.isArray(filteredApiQuotes)
     ? filteredApiQuotes
+    : []
+
+  const safeSharedQuotes = Array.isArray(sharedQuotes)
+    ? sharedQuotes
     : []
 
   const getUserId = (user) => {
@@ -488,6 +497,52 @@ export default function Home({
 
 
   // =========================================================
+  // DAILY AFFIRMATION
+  // =========================================================
+
+  const hasAffirmationSearch =
+    quoteSearch.trim().length > 0
+
+  const hasAffirmationTheme =
+    selectedTheme !== 'All'
+
+  const isAffirmationFiltered =
+    hasAffirmationSearch ||
+    hasAffirmationTheme
+
+  const affirmationResults =
+    isAffirmationFiltered
+      ? safeFilteredApiQuotes
+      : dailyQuote
+        ? [dailyQuote]
+        : []
+
+
+  const themeOptions = [
+    'All',
+    'Self-Love',
+    'Motivation',
+    'Confidence',
+    'Happiness',
+    'Growth',
+    'Positivity',
+    'Success',
+    'Courage',
+    'Wisdom',
+    'Love',
+    'Life',
+    'Leadership',
+    'Friendship',
+    'Hope',
+    'Nature',
+    'Creativity',
+    'Change',
+    'Perseverance',
+    'Inspiration'
+  ]
+
+
+  // =========================================================
   // COMMENTS
   // =========================================================
 
@@ -573,6 +628,52 @@ export default function Home({
         onViewProfile(matchingUser)
       }
     }
+  }
+
+
+  // =========================================================
+  // SEND AFFIRMATION
+  // =========================================================
+
+  const handleSendQuote = (
+    quote,
+    receiverId
+  ) => {
+    if (
+      !quote ||
+      !receiverId ||
+      !onSendQuoteToFriend
+    ) {
+      return
+    }
+
+    if (
+      receiverId ===
+      currentUserId
+    ) {
+      return
+    }
+
+    onSendQuoteToFriend(
+      quote,
+      receiverId
+    )
+  }
+
+
+  const getFriendName = (friend) => {
+    const matchingUser =
+      safeAllUsers.find(
+        (user) =>
+          isSameUser(
+            user,
+            friend
+          )
+      )
+
+    return getUsername(
+      matchingUser || friend
+    ) || 'Anonymous'
   }
 
 
@@ -911,33 +1012,18 @@ export default function Home({
             className="w-full px-3 py-2 bg-stone-50 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
           >
 
-            <option value="All">
-              All Themes
-            </option>
-
-            <option value="Self-Love">
-              Self-Love
-            </option>
-
-            <option value="Motivation">
-              Motivation
-            </option>
-
-            <option value="Confidence">
-              Confidence
-            </option>
-
-            <option value="Happiness">
-              Happiness
-            </option>
-
-            <option value="Growth">
-              Growth
-            </option>
-
-            <option value="Positivity">
-              Positivity
-            </option>
+            {themeOptions.map(
+              (theme) => (
+                <option
+                  key={theme}
+                  value={theme}
+                >
+                  {theme === 'All'
+                    ? 'All Themes'
+                    : theme}
+                </option>
+              )
+            )}
 
           </select>
 
@@ -975,16 +1061,18 @@ export default function Home({
 
             </div>
 
-          ) : safeFilteredApiQuotes.length > 0 ? (
+          ) : affirmationResults.length > 0 ? (
 
             /* Results */
             <div className="space-y-3">
 
-              {safeFilteredApiQuotes
-                .slice(0, 3)
-                .map((item) => (
+              {affirmationResults.map(
+                (item, index) => (
                   <div
-                    key={item.id}
+                    key={
+                      item.id ||
+                      `${item.author}-${index}`
+                    }
                     className="bg-stone-50 p-3 rounded-xl border border-stone-100"
                   >
 
@@ -993,11 +1081,80 @@ export default function Home({
                     </p>
 
                     <p className="text-xs text-stone-500 font-semibold mt-2">
-                      — {item.author}
+                      {item.author}
                     </p>
 
+
+                    {/* Send To Friend */}
+                    {safeFriends.length > 0 &&
+                      onSendQuoteToFriend && (
+                        <div className="mt-3">
+
+                          <select
+                            defaultValue=""
+                            onChange={(event) => {
+                              const receiverId =
+                                event.target.value
+
+                              if (
+                                receiverId
+                              ) {
+                                handleSendQuote(
+                                  item,
+                                  receiverId
+                                )
+
+                                event.target.value =
+                                  ''
+                              }
+                            }}
+                            className="w-full px-2.5 py-2 bg-white rounded-lg border border-stone-200 text-xs text-stone-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+                          >
+
+                            <option value="">
+                              Send to a friend...
+                            </option>
+
+                            {safeFriends.map(
+                              (friend) => {
+                                const friendId =
+                                  getUserId(
+                                    friend
+                                  )
+
+                                if (
+                                  !friendId ||
+                                  friendId.toLowerCase() ===
+                                    currentUserId
+                                ) {
+                                  return null
+                                }
+
+                                return (
+                                  <option
+                                    key={
+                                      friendId
+                                    }
+                                    value={
+                                      friendId
+                                    }
+                                  >
+                                    @{getFriendName(
+                                      friend
+                                    )}
+                                  </option>
+                                )
+                              }
+                            )}
+
+                          </select>
+
+                        </div>
+                      )}
+
                   </div>
-                ))}
+                )
+              )}
 
             </div>
 
@@ -1018,9 +1175,13 @@ export default function Home({
           {/* Result Count */}
           {!quoteLoading &&
             !quoteError &&
-            safeFilteredApiQuotes.length > 3 && (
+            isAffirmationFiltered &&
+            affirmationResults.length > 0 && (
               <p className="text-[11px] text-stone-400 text-center">
-                Showing 3 results
+                Showing {affirmationResults.length} result
+                {affirmationResults.length !== 1
+                  ? 's'
+                  : ''}
               </p>
             )}
 
@@ -1037,11 +1198,87 @@ export default function Home({
                 }
                 className="w-full text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl font-semibold transition"
               >
-                Refresh Affirmations
+                Refresh Affirmation
               </button>
             )}
 
         </div>
+
+
+        {/* ===================================================
+            AFFIRMATIONS FROM FRIENDS
+            =================================================== */}
+
+        {safeSharedQuotes.length > 0 && (
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200 space-y-3">
+
+            <div>
+              <h3 className="font-semibold text-stone-800">
+                Affirmations From Friends
+              </h3>
+
+              <p className="text-xs text-stone-400 mt-1">
+                Affirmations your friends sent you.
+              </p>
+            </div>
+
+
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+
+              {safeSharedQuotes.map(
+                (sharedQuote, index) => {
+                  const sender =
+                    safeAllUsers.find(
+                      (user) =>
+                        isSameUser(
+                          user,
+                          sharedQuote.senderId
+                        )
+                    )
+
+                  const senderName =
+                    getUsername(sender) ||
+                    sharedQuote.senderName ||
+                    'Anonymous'
+
+                  return (
+                    <div
+                      key={
+                        sharedQuote.id ||
+                        `shared-quote-${index}`
+                      }
+                      className="bg-amber-50 p-3 rounded-xl border border-amber-100"
+                    >
+
+                      <p className="text-[11px] text-stone-500 mb-2">
+                        @{senderName} sent you an affirmation
+                      </p>
+
+                      <p className="text-sm text-stone-700 leading-relaxed">
+                        "{sharedQuote.quote}"
+                      </p>
+
+                      <p className="text-xs text-stone-500 font-semibold mt-2">
+                        {sharedQuote.author}
+                      </p>
+
+                      {sharedQuote.createdAt && (
+                        <p className="text-[10px] text-stone-400 mt-2">
+                          {formatDate(
+                            sharedQuote.createdAt
+                          )}
+                        </p>
+                      )}
+
+                    </div>
+                  )
+                }
+              )}
+
+            </div>
+
+          </div>
+        )}
 
 
         {/* Friend Requests */}
