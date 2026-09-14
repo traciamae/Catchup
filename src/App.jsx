@@ -30,14 +30,7 @@ import {
   getDocs
 } from 'firebase/firestore'
 
-
-
 export default function App() {
-
-  // =========================================================
-  // STATE
-  // =========================================================
-
   const [activeTab, setActiveTab] = useState('home')
 
   const [currentUser, setCurrentUser] = useState(() => {
@@ -64,17 +57,13 @@ export default function App() {
   const [friends, setFriends] = useState([])
   const [friendRequests, setFriendRequests] = useState([])
 
-  const [dailyQuote, setDailyQuote] = useState(null)
+  const [apiQuotes, setApiQuotes] = useState([])
+  const [quoteSearch, setQuoteSearch] = useState('')
+  const [selectedTheme, setSelectedTheme] = useState('All')
   const [quoteError, setQuoteError] = useState('')
   const [quoteLoading, setQuoteLoading] = useState(true)
 
   const [dataError, setDataError] = useState('')
-
-
-
-  // =========================================================
-  // USER HELPERS
-  // =========================================================
 
   const getUserId = useCallback((user) => {
     if (!user) {
@@ -94,8 +83,6 @@ export default function App() {
 
     return String(user)
   }, [])
-
-
 
   const getUserName = useCallback(
     (user) => {
@@ -117,8 +104,6 @@ export default function App() {
     [getUserId]
   )
 
-
-
   const getUserAvatar = useCallback((user) => {
     if (!user || typeof user !== 'object') {
       return ''
@@ -132,8 +117,6 @@ export default function App() {
       ''
     )
   }, [])
-
-
 
   const formatUserPayload = useCallback(
     (user) => {
@@ -172,15 +155,10 @@ export default function App() {
     [getUserId, getUserAvatar]
   )
 
-
-
   const currentUserId = getUserId(currentUser)
 
-
-
   // =========================================================
-  // DAILY QUOTE API
-  // AJAX / FETCH API
+  // DAILY AFFIRMATION / FETCH API
   // =========================================================
 
   const fetchDailyQuote = useCallback(async () => {
@@ -189,7 +167,7 @@ export default function App() {
 
     try {
       const response = await fetch(
-        'https://dummyjson.com/quotes/random'
+        'https://dummyjson.com/quotes?limit=0'
       )
 
       if (!response.ok) {
@@ -202,34 +180,23 @@ export default function App() {
 
       if (
         !data ||
-        typeof data.quote !== 'string' ||
-        data.quote.trim() === ''
+        !Array.isArray(data.quotes) ||
+        data.quotes.length === 0
       ) {
         throw new Error(
           'Invalid data received from the API.'
         )
       }
 
-      const author =
-        typeof data.author === 'string' &&
-        data.author.trim() !== ''
-          ? data.author
-          : 'Unknown'
-
-      setDailyQuote({
-        quote: data.quote,
-        author: author
-      })
-
+      setApiQuotes(data.quotes)
       setQuoteError('')
-
     } catch (error) {
       console.error(
-        'Daily quote API error:',
+        'Daily affirmation API error:',
         error
       )
 
-      setDailyQuote(null)
+      setApiQuotes([])
 
       setQuoteError(
         'Unable to retrieve the data. Please try again.'
@@ -239,13 +206,116 @@ export default function App() {
     }
   }, [])
 
-
-
   useEffect(() => {
     fetchDailyQuote()
   }, [fetchDailyQuote])
 
+  // =========================================================
+  // AFFIRMATION THEMES
+  // =========================================================
 
+  const affirmationThemes = {
+    'Self-Love': [
+      'love',
+      'self',
+      'yourself',
+      'worth',
+      'care',
+      'beautiful'
+    ],
+
+    'Motivation': [
+      'success',
+      'achieve',
+      'goal',
+      'work',
+      'action',
+      'try',
+      'effort'
+    ],
+
+    'Confidence': [
+      'believe',
+      'confidence',
+      'courage',
+      'strong',
+      'capable',
+      'fear'
+    ],
+
+    'Happiness': [
+      'happy',
+      'happiness',
+      'joy',
+      'smile',
+      'laugh',
+      'enjoy'
+    ],
+
+    'Growth': [
+      'learn',
+      'learning',
+      'grow',
+      'growth',
+      'change',
+      'experience'
+    ],
+
+    'Positivity': [
+      'positive',
+      'hope',
+      'hopeful',
+      'better',
+      'good',
+      'light'
+    ]
+  }
+
+  const getQuoteTheme = (quote) => {
+    const quoteText = String(
+      quote.quote || ''
+    ).toLowerCase()
+
+    for (
+      const [theme, keywords]
+      of Object.entries(affirmationThemes)
+    ) {
+      const hasKeyword = keywords.some(
+        (keyword) =>
+          quoteText.includes(
+            keyword.toLowerCase()
+          )
+      )
+
+      if (hasKeyword) {
+        return theme
+      }
+    }
+
+    return 'Positivity'
+  }
+
+  const filteredApiQuotes = apiQuotes.filter(
+    (item) => {
+      const search =
+        quoteSearch.trim().toLowerCase()
+
+      const matchesAuthor =
+        !search ||
+        String(item.author || '')
+          .toLowerCase()
+          .includes(search)
+
+      const matchesTheme =
+        selectedTheme === 'All' ||
+        getQuoteTheme(item) === selectedTheme
+
+      return (
+        matchesAuthor &&
+        matchesTheme
+      )
+    }
+  )
 
   // =========================================================
   // NAVIGATION
@@ -259,10 +329,8 @@ export default function App() {
     setActiveTab(tabId)
   }
 
-
-
   // =========================================================
-  // POSTS LISTENER
+  // POSTS
   // =========================================================
 
   useEffect(() => {
@@ -274,10 +342,12 @@ export default function App() {
     const unsubscribe = onSnapshot(
       postsQuery,
       (snapshot) => {
-        const livePosts = snapshot.docs.map((postDoc) => ({
-          id: postDoc.id,
-          ...postDoc.data()
-        }))
+        const livePosts = snapshot.docs.map(
+          (postDoc) => ({
+            id: postDoc.id,
+            ...postDoc.data()
+          })
+        )
 
         setPosts(livePosts)
         setDataError('')
@@ -297,20 +367,20 @@ export default function App() {
     return () => unsubscribe()
   }, [])
 
-
-
   // =========================================================
-  // USERS LISTENER
+  // USERS
   // =========================================================
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, 'users'),
       (snapshot) => {
-        const usersList = snapshot.docs.map((userDoc) => ({
-          id: userDoc.id,
-          ...userDoc.data()
-        }))
+        const usersList = snapshot.docs.map(
+          (userDoc) => ({
+            id: userDoc.id,
+            ...userDoc.data()
+          })
+        )
 
         setAllUsers(usersList)
 
@@ -319,7 +389,8 @@ export default function App() {
         }
 
         const matchedUser = usersList.find(
-          (user) => getUserId(user) === currentUserId
+          (user) =>
+            getUserId(user) === currentUserId
         )
 
         if (!matchedUser) {
@@ -360,25 +431,18 @@ export default function App() {
     return () => unsubscribe()
   }, [currentUserId, getUserId])
 
-
-
-  // =========================================================
-  // VIEWED PROFILE
-  // =========================================================
-
   const activeViewedUser = viewedUser
     ? (
         allUsers.find(
           (user) =>
-            getUserId(user) === getUserId(viewedUser)
+            getUserId(user) ===
+            getUserId(viewedUser)
         ) || viewedUser
       )
     : null
 
-
-
   // =========================================================
-  // FRIENDS LISTENER
+  // FRIENDS
   // =========================================================
 
   useEffect(() => {
@@ -424,10 +488,8 @@ export default function App() {
     return () => unsubscribe()
   }, [currentUserId])
 
-
-
   // =========================================================
-  // FRIEND REQUESTS LISTENER
+  // FRIEND REQUESTS
   // =========================================================
 
   useEffect(() => {
@@ -439,8 +501,16 @@ export default function App() {
     const requestsQuery = query(
       collection(db, 'friendRequests'),
       or(
-        where('senderId', '==', currentUserId),
-        where('receiverId', '==', currentUserId)
+        where(
+          'senderId',
+          '==',
+          currentUserId
+        ),
+        where(
+          'receiverId',
+          '==',
+          currentUserId
+        )
       )
     )
 
@@ -471,10 +541,8 @@ export default function App() {
     return () => unsubscribe()
   }, [currentUserId])
 
-
-
   // =========================================================
-  // LOGIN
+  // AUTHENTICATION
   // =========================================================
 
   const handleAuthSuccess = (userData) => {
@@ -499,28 +567,22 @@ export default function App() {
     setDataError('')
   }
 
-
-
-  // =========================================================
-  // LOGOUT
-  // =========================================================
-
   const handleLogout = () => {
     setCurrentUser(null)
     setViewedUser(null)
     setFriends([])
     setFriendRequests([])
 
-    localStorage.removeItem('catchup_session')
+    localStorage.removeItem(
+      'catchup_session'
+    )
 
     setActiveTab('home')
     setDataError('')
   }
 
-
-
   // =========================================================
-  // VIEW PROFILE
+  // PROFILE NAVIGATION
   // =========================================================
 
   const handleViewProfile = (userToView) => {
@@ -544,10 +606,8 @@ export default function App() {
     setActiveTab('profile')
   }
 
-
-
   // =========================================================
-  // CREATE POST
+  // ADD POST
   // =========================================================
 
   const addPost = async (
@@ -571,8 +631,11 @@ export default function App() {
       return
     }
 
-    const authorName = getUserName(currentUser)
-    const authorAvatar = getUserAvatar(currentUser)
+    const authorName =
+      getUserName(currentUser)
+
+    const authorAvatar =
+      getUserAvatar(currentUser)
 
     try {
       await addDoc(
@@ -601,7 +664,6 @@ export default function App() {
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error creating post:',
@@ -614,10 +676,8 @@ export default function App() {
     }
   }
 
-
-
   // =========================================================
-  // ADD COMMENT
+  // COMMENTS
   // =========================================================
 
   const handleAddComment = async (
@@ -638,12 +698,13 @@ export default function App() {
       await updateDoc(
         postRef,
         {
-          comments: arrayUnion(newComment)
+          comments: arrayUnion(
+            newComment
+          )
         }
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error adding comment:',
@@ -656,10 +717,8 @@ export default function App() {
     }
   }
 
-
-
   // =========================================================
-  // REACTION
+  // REACTIONS
   // =========================================================
 
   const handleReaction = async (
@@ -691,12 +750,12 @@ export default function App() {
       await updateDoc(
         postRef,
         {
-          [`reactions.${type}`]: increment(1)
+          [`reactions.${type}`]:
+            increment(1)
         }
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error adding reaction:',
@@ -709,13 +768,13 @@ export default function App() {
     }
   }
 
-
-
   // =========================================================
-  // SOFT DELETE
+  // DELETE POST
   // =========================================================
 
-  const handleDeletePost = async (postId) => {
+  const handleDeletePost = async (
+    postId
+  ) => {
     if (!postId) {
       return
     }
@@ -729,7 +788,6 @@ export default function App() {
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error deleting post:',
@@ -742,13 +800,13 @@ export default function App() {
     }
   }
 
-
-
   // =========================================================
   // PERMANENT DELETE
   // =========================================================
 
-  const handlePermanentDelete = async (postId) => {
+  const handlePermanentDelete = async (
+    postId
+  ) => {
     if (!postId) {
       return
     }
@@ -759,7 +817,6 @@ export default function App() {
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error permanently deleting post:',
@@ -772,13 +829,13 @@ export default function App() {
     }
   }
 
-
-
   // =========================================================
   // RESTORE POST
   // =========================================================
 
-  const handleRestorePost = async (postId) => {
+  const handleRestorePost = async (
+    postId
+  ) => {
     if (!postId) {
       return
     }
@@ -794,7 +851,6 @@ export default function App() {
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error restoring post:',
@@ -806,8 +862,6 @@ export default function App() {
       )
     }
   }
-
-
 
   // =========================================================
   // UPDATE PROFILE
@@ -930,10 +984,11 @@ export default function App() {
             )
         )
 
-      await Promise.all(updatePromises)
+      await Promise.all(
+        updatePromises
+      )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error updating profile:',
@@ -946,10 +1001,8 @@ export default function App() {
     }
   }
 
-
-
   // =========================================================
-  // SEND FRIEND REQUEST
+  // FRIEND REQUEST
   // =========================================================
 
   const handleRequestFriend = async (
@@ -962,7 +1015,8 @@ export default function App() {
       return
     }
 
-    const targetId = getUserId(targetUser)
+    const targetId =
+      getUserId(targetUser)
 
     if (
       !targetId ||
@@ -1001,7 +1055,6 @@ export default function App() {
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error sending friend request:',
@@ -1014,10 +1067,8 @@ export default function App() {
     }
   }
 
-
-
   // =========================================================
-  // ACCEPT FRIEND REQUEST
+  // ACCEPT FRIEND
   // =========================================================
 
   const handleAcceptFriend = async (
@@ -1030,7 +1081,8 @@ export default function App() {
       return
     }
 
-    const senderId = getUserId(senderUser)
+    const senderId =
+      getUserId(senderUser)
 
     if (
       !senderId ||
@@ -1040,10 +1092,14 @@ export default function App() {
     }
 
     const currentUserPayload =
-      formatUserPayload(currentUser)
+      formatUserPayload(
+        currentUser
+      )
 
     const senderUserPayload =
-      formatUserPayload(senderUser)
+      formatUserPayload(
+        senderUser
+      )
 
     try {
       const currentUserRef = doc(
@@ -1094,7 +1150,6 @@ export default function App() {
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error accepting friend request:',
@@ -1107,10 +1162,8 @@ export default function App() {
     }
   }
 
-
-
   // =========================================================
-  // DECLINE FRIEND REQUEST
+  // DECLINE FRIEND
   // =========================================================
 
   const handleDeclineFriend = async (
@@ -1123,7 +1176,8 @@ export default function App() {
       return
     }
 
-    const senderId = getUserId(senderUser)
+    const senderId =
+      getUserId(senderUser)
 
     if (!senderId) {
       return
@@ -1142,7 +1196,6 @@ export default function App() {
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error declining friend request:',
@@ -1154,8 +1207,6 @@ export default function App() {
       )
     }
   }
-
-
 
   // =========================================================
   // CANCEL FRIEND REQUEST
@@ -1171,7 +1222,8 @@ export default function App() {
       return
     }
 
-    const targetId = getUserId(targetUser)
+    const targetId =
+      getUserId(targetUser)
 
     if (!targetId) {
       return
@@ -1190,7 +1242,6 @@ export default function App() {
       )
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error canceling friend request:',
@@ -1202,8 +1253,6 @@ export default function App() {
       )
     }
   }
-
-
 
   // =========================================================
   // REMOVE FRIEND
@@ -1237,7 +1286,9 @@ export default function App() {
       )
 
       const currentUserSnap =
-        await getDoc(currentUserRef)
+        await getDoc(
+          currentUserRef
+        )
 
       if (currentUserSnap.exists()) {
         const currentData =
@@ -1272,7 +1323,9 @@ export default function App() {
       )
 
       const targetUserSnap =
-        await getDoc(targetUserRef)
+        await getDoc(
+          targetUserRef
+        )
 
       if (targetUserSnap.exists()) {
         const targetData =
@@ -1302,7 +1355,6 @@ export default function App() {
       }
 
       setDataError('')
-
     } catch (error) {
       console.error(
         'Error removing friend:',
@@ -1314,8 +1366,6 @@ export default function App() {
       )
     }
   }
-
-
 
   // =========================================================
   // RENDER
@@ -1357,7 +1407,9 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={() => setDataError('')}
+                  onClick={() =>
+                    setDataError('')
+                  }
                   className="font-semibold hover:underline shrink-0"
                 >
                   Dismiss
@@ -1366,35 +1418,95 @@ export default function App() {
               </div>
             )}
 
+            {/* Daily Affirmation / AJAX API Data */}
+            <div className="mb-6 p-4 sm:p-5 rounded-xl bg-amber-50/80 border border-amber-200/60 shadow-sm">
 
+              <div className="text-center mb-4">
 
-            {/* Daily Inspiration / AJAX API Data */}
-            <div className="mb-6 p-4 rounded-xl bg-amber-50/80 border border-amber-200/60 shadow-sm text-center">
+                <h2 className="text-lg sm:text-xl font-semibold text-amber-900">
+                  Daily Affirmation
+                </h2>
 
-              {/* API Loading State */}
+                <p className="text-xs sm:text-sm text-stone-500 mt-1">
+                  Find an affirmation by author or theme
+                </p>
+
+              </div>
+
+              {/* Search and Theme Filter */}
+              <div className="flex flex-col sm:flex-row gap-2 mb-4">
+
+                <input
+                  type="text"
+                  value={quoteSearch}
+                  onChange={(e) =>
+                    setQuoteSearch(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Search by author name..."
+                  className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-white text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+
+                <select
+                  value={selectedTheme}
+                  onChange={(e) =>
+                    setSelectedTheme(
+                      e.target.value
+                    )
+                  }
+                  className="w-full sm:w-48 px-3 py-2 rounded-lg border border-amber-200 bg-white text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                >
+
+                  <option value="All">
+                    All Themes
+                  </option>
+
+                  {Object.keys(
+                    affirmationThemes
+                  ).map(
+                    (theme) => (
+                      <option
+                        key={theme}
+                        value={theme}
+                      >
+                        {theme}
+                      </option>
+                    )
+                  )}
+
+                </select>
+
+              </div>
+
+              {/* Loading */}
               {quoteLoading && (
-                <div>
+                <div className="text-center py-6">
+
                   <p className="text-stone-400 text-sm animate-pulse">
-                    Loading daily inspiration...
+                    Loading daily affirmations...
                   </p>
+
                 </div>
               )}
 
-
-
-              {/* API Error State */}
+              {/* Error */}
               {!quoteLoading &&
                 quoteError && (
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                  <div className="text-center py-4">
 
-                    <p className="text-red-500 font-medium text-sm">
+                    <p className="text-red-500 font-medium text-sm mb-2">
                       {quoteError}
                     </p>
 
                     <button
                       type="button"
-                      onClick={fetchDailyQuote}
-                      disabled={quoteLoading}
+                      onClick={
+                        fetchDailyQuote
+                      }
+                      disabled={
+                        quoteLoading
+                      }
                       className="text-sm font-semibold text-amber-700 hover:text-amber-900 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Try Again
@@ -1403,37 +1515,84 @@ export default function App() {
                   </div>
                 )}
 
-
-
-              {/* API Retrieved Data */}
+              {/* No Results */}
               {!quoteLoading &&
                 !quoteError &&
-                dailyQuote && (
-                  <div>
+                filteredApiQuotes.length ===
+                  0 && (
+                  <div className="text-center py-6">
 
-                    <p className="text-stone-700 italic text-sm sm:text-base">
-                      "{dailyQuote.quote}"
+                    <p className="text-stone-500 text-sm">
+                      No affirmations found.
                     </p>
 
-                    <p className="mt-1 font-semibold text-amber-900 text-sm">
-                      - {dailyQuote.author}
+                    <p className="text-stone-400 text-xs mt-1">
+                      Try another author name or theme.
                     </p>
+
+                  </div>
+                )}
+
+              {/* API Results */}
+              {!quoteLoading &&
+                !quoteError &&
+                filteredApiQuotes.length >
+                  0 && (
+                  <div className="space-y-3">
+
+                    {filteredApiQuotes
+                      .slice(0, 3)
+                      .map(
+                        (item) => (
+                          <div
+                            key={item.id}
+                            className="bg-white rounded-xl border border-amber-100 p-4 text-center"
+                          >
+
+                            <p className="text-stone-700 italic text-sm sm:text-base leading-relaxed">
+                              "{item.quote}"
+                            </p>
+
+                            <p className="mt-2 font-semibold text-amber-900 text-sm">
+                              {item.author}
+                            </p>
+
+                            <span className="inline-block mt-2 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
+                              {getQuoteTheme(
+                                item
+                              )}
+                            </span>
+
+                          </div>
+                        )
+                      )}
+
+                  </div>
+                )}
+
+              {/* Refresh */}
+              {!quoteLoading &&
+                !quoteError &&
+                apiQuotes.length > 0 && (
+                  <div className="text-center mt-4">
 
                     <button
                       type="button"
-                      onClick={fetchDailyQuote}
-                      disabled={quoteLoading}
-                      className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={
+                        fetchDailyQuote
+                      }
+                      disabled={
+                        quoteLoading
+                      }
+                      className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      New Quote
+                      Refresh Affirmations
                     </button>
 
                   </div>
                 )}
 
             </div>
-
-
 
             <div className="w-full">
 
@@ -1444,21 +1603,37 @@ export default function App() {
                   currentUser={currentUser}
                   allUsers={allUsers}
                   friends={friends}
-                  friendRequests={friendRequests}
+                  friendRequests={
+                    friendRequests
+                  }
                   onReact={handleReaction}
                   addPost={addPost}
-                  onAddComment={handleAddComment}
-                  onDeletePost={handleDeletePost}
-                  onRequestFriend={handleRequestFriend}
-                  onAcceptFriend={handleAcceptFriend}
-                  onDeclineFriend={handleDeclineFriend}
-                  onCancelRequest={handleCancelRequest}
-                  onRemoveFriend={handleRemoveFriend}
-                  onViewProfile={handleViewProfile}
+                  onAddComment={
+                    handleAddComment
+                  }
+                  onDeletePost={
+                    handleDeletePost
+                  }
+                  onRequestFriend={
+                    handleRequestFriend
+                  }
+                  onAcceptFriend={
+                    handleAcceptFriend
+                  }
+                  onDeclineFriend={
+                    handleDeclineFriend
+                  }
+                  onCancelRequest={
+                    handleCancelRequest
+                  }
+                  onRemoveFriend={
+                    handleRemoveFriend
+                  }
+                  onViewProfile={
+                    handleViewProfile
+                  }
                 />
               )}
-
-
 
               {/* SHARED FEED */}
               {activeTab === 'shared' && (
@@ -1467,11 +1642,11 @@ export default function App() {
                   addPost={addPost}
                   currentUser={currentUser}
                   onReact={handleReaction}
-                  onDeletePost={handleDeletePost}
+                  onDeletePost={
+                    handleDeletePost
+                  }
                 />
               )}
-
-
 
               {/* PRIVATE JOURNAL */}
               {activeTab === 'journal' && (
@@ -1480,11 +1655,11 @@ export default function App() {
                   addPost={addPost}
                   onReact={handleReaction}
                   currentUser={currentUser}
-                  onDeletePost={handleDeletePost}
+                  onDeletePost={
+                    handleDeletePost
+                  }
                 />
               )}
-
-
 
               {/* ARCHIVE */}
               {activeTab === 'archive' && (
@@ -1492,19 +1667,19 @@ export default function App() {
                   posts={posts}
                   currentUser={currentUser}
                   friends={friends}
-                  onPermanentDelete={handlePermanentDelete}
-                  onRestorePost={handleRestorePost}
+                  onPermanentDelete={
+                    handlePermanentDelete
+                  }
+                  onRestorePost={
+                    handleRestorePost
+                  }
                 />
               )}
-
-
 
               {/* ABOUT */}
               {activeTab === 'about' && (
                 <About />
               )}
-
-
 
               {/* PROFILE */}
               {activeTab === 'profile' && (
@@ -1513,26 +1688,46 @@ export default function App() {
                     activeViewedUser ||
                     currentUser
                   }
-                  currentUser={currentUser}
+                  currentUser={
+                    currentUser
+                  }
                   allUsers={allUsers}
-                  onUpdateProfile={handleUpdateProfile}
+                  onUpdateProfile={
+                    handleUpdateProfile
+                  }
                   friends={friends}
-                  friendRequests={friendRequests}
+                  friendRequests={
+                    friendRequests
+                  }
                   profileUserFriends={
                     (
                       activeViewedUser ||
                       currentUser
                     )?.friends || []
                   }
-                  onRequestFriend={handleRequestFriend}
-                  onAcceptFriend={handleAcceptFriend}
-                  onDeclineFriend={handleDeclineFriend}
-                  onCancelRequest={handleCancelRequest}
-                  onRemoveFriend={handleRemoveFriend}
-                  onViewProfile={handleViewProfile}
+                  onRequestFriend={
+                    handleRequestFriend
+                  }
+                  onAcceptFriend={
+                    handleAcceptFriend
+                  }
+                  onDeclineFriend={
+                    handleDeclineFriend
+                  }
+                  onCancelRequest={
+                    handleCancelRequest
+                  }
+                  onRemoveFriend={
+                    handleRemoveFriend
+                  }
+                  onViewProfile={
+                    handleViewProfile
+                  }
                   onBackToFeed={() => {
                     setViewedUser(null)
-                    setActiveTab('home')
+                    setActiveTab(
+                      'home'
+                    )
                   }}
                 />
               )}

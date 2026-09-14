@@ -87,9 +87,6 @@ export default function Profile({
     return [String(user).toLowerCase()];
   };
 
-  /*
-    Check whether two users are the same account.
-  */
   const isSameUser = (userA, userB) => {
     const identifiersA = getIdentifiers(userA);
     const identifiersB = getIdentifiers(userB);
@@ -99,9 +96,6 @@ export default function Profile({
     );
   };
 
-  /*
-    Get profile picture from different possible fields.
-  */
   const getAvatarUrl = (user) => {
     if (!user || typeof user !== 'object') {
       return '';
@@ -116,9 +110,6 @@ export default function Profile({
     );
   };
 
-  /*
-    Determine which profile is being displayed.
-  */
   const isSelf =
     !profileUser ||
     isSameUser(profileUser, currentUser);
@@ -133,17 +124,11 @@ export default function Profile({
   const targetUserId = extractId(displayUser);
   const targetUsername = extractUsername(displayUser);
 
-  /*
-    Find the complete user object from allUsers.
-  */
   const completeDisplayUser =
     (allUsers || []).find((user) =>
       isSameUser(user, displayUser)
     ) || displayUser;
 
-  /*
-    Update form whenever the displayed profile changes.
-  */
   useEffect(() => {
     if (!displayUser) {
       return;
@@ -171,17 +156,10 @@ export default function Profile({
     setIsEditing(false);
   }, [displayUser]);
 
-  /*
-    Check whether the displayed user is already a friend.
-  */
   const isFriend = (friends || []).some((friend) =>
     isSameUser(friend, displayUser)
   );
 
-  /*
-    Check whether current user sent a pending request
-    to the displayed user.
-  */
   const hasSentRequest = (friendRequests || []).some(
     (request) => {
       if (
@@ -208,10 +186,6 @@ export default function Profile({
     }
   );
 
-  /*
-    Check whether displayed user sent a pending request
-    to current user.
-  */
   const hasReceivedRequest = (
     friendRequests || []
   ).some((request) => {
@@ -238,9 +212,6 @@ export default function Profile({
     );
   });
 
-  /*
-    Get incoming requests for the current user.
-  */
   const incomingRequests = (
     friendRequests || []
   ).filter((request) => {
@@ -259,29 +230,14 @@ export default function Profile({
     return isSameUser(receiver, currentUser);
   });
 
-  /*
-    Display the correct friend list.
-
-    Own profile:
-    use current user's friends.
-
-    Other profile:
-    use that user's friends.
-  */
   const sourceFriends = isSelf
     ? friends || []
     : profileUserFriends || [];
 
-  /*
-    Remove current user from the displayed friend list.
-  */
   const activeFriendsList = sourceFriends.filter(
     (friend) => !isSameUser(friend, currentUser)
   );
 
-  /*
-    Handle profile picture selection.
-  */
   const handleFileChange = (event) => {
     const file =
       event.target.files &&
@@ -295,10 +251,6 @@ export default function Profile({
       return;
     }
 
-    /*
-      Limit the image to 5 MB because the project
-      stores the image as Base64 data.
-    */
     if (file.size > 5 * 1024 * 1024) {
       alert('Please choose an image smaller than 5 MB.');
       return;
@@ -316,9 +268,6 @@ export default function Profile({
     reader.readAsDataURL(file);
   };
 
-  /*
-    Save profile changes.
-  */
   const handleSave = (event) => {
     event.preventDefault();
 
@@ -344,18 +293,12 @@ export default function Profile({
     setIsEditing(false);
   };
 
-  /*
-    Remove a friend.
-  */
   const handleRemove = (target) => {
     if (onRemoveFriend) {
       onRemoveFriend(target);
     }
   };
 
-  /*
-    Get the profile display name.
-  */
   const displayName =
     typeof completeDisplayUser === 'object'
       ? completeDisplayUser?.name ||
@@ -366,9 +309,6 @@ export default function Profile({
           completeDisplayUser || 'User Profile'
         );
 
-  /*
-    Get username for display.
-  */
   const displayUsername =
     typeof completeDisplayUser === 'object'
       ? completeDisplayUser?.username ||
@@ -387,9 +327,6 @@ export default function Profile({
     getAvatarUrl(completeDisplayUser) ||
     (isSelf ? formData.avatarUrl : '');
 
-  /*
-    Format birthdate.
-  */
   const formatBirthdate = (dateString) => {
     if (!dateString) {
       return 'Birthdate not set';

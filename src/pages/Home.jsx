@@ -16,15 +16,22 @@ export default function Home({
   onCancelRequest,
   onRemoveFriend,
   onViewProfile,
-  onAddComment
+  onAddComment,
+
+  // Daily Affirmation API
+  apiQuotes = [],
+  quoteSearch = '',
+  setQuoteSearch,
+  selectedTheme = 'All',
+  setSelectedTheme,
+  filteredApiQuotes = [],
+  quoteLoading = false,
+  quoteError = '',
+  fetchDailyQuote
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [openCommentPostId, setOpenCommentPostId] = useState(null)
   const [commentInputs, setCommentInputs] = useState({})
-
-  // =========================================================
-  // SAFE DATA
-  // =========================================================
 
   const safePosts = Array.isArray(posts)
     ? posts
@@ -42,10 +49,13 @@ export default function Home({
     ? friendRequests
     : []
 
+  const safeApiQuotes = Array.isArray(apiQuotes)
+    ? apiQuotes
+    : []
 
-  // =========================================================
-  // USER HELPERS
-  // =========================================================
+  const safeFilteredApiQuotes = Array.isArray(filteredApiQuotes)
+    ? filteredApiQuotes
+    : []
 
   const getUserId = (user) => {
     if (!user) {
@@ -143,11 +153,6 @@ export default function Home({
 
   const currentUserId =
     getUserId(currentUser).toLowerCase()
-
-
-  // =========================================================
-  // DATE HELPERS
-  // =========================================================
 
   const formatDate = (timestamp) => {
     if (!timestamp) {
@@ -327,10 +332,6 @@ export default function Home({
   }
 
 
-  // =========================================================
-  // VISIBLE POSTS
-  // =========================================================
-
   const visiblePosts =
     safePosts.filter((post) => {
       if (
@@ -374,14 +375,11 @@ export default function Home({
     })
 
 
-  // =========================================================
-  // SEARCH USERS
-  // =========================================================
-
   const cleanedSearch =
     searchQuery
       .trim()
       .toLowerCase()
+
 
   const searchResults =
     cleanedSearch
@@ -407,10 +405,6 @@ export default function Home({
         })
       : []
 
-
-  // =========================================================
-  // FRIEND REQUEST HELPERS
-  // =========================================================
 
   const incomingRequests =
     safeFriendRequests.filter(
@@ -872,6 +866,183 @@ export default function Home({
           ===================================================== */}
 
       <div className="space-y-6">
+
+        {/* ===================================================
+            DAILY AFFIRMATION
+            =================================================== */}
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+
+          <div>
+            <h3 className="font-semibold text-stone-800">
+              Daily Affirmation
+            </h3>
+
+            <p className="text-xs text-stone-400 mt-1">
+              Find an affirmation by author or theme.
+            </p>
+          </div>
+
+
+          {/* Search by Author */}
+          <input
+            type="text"
+            value={quoteSearch}
+            onChange={(event) =>
+              setQuoteSearch &&
+              setQuoteSearch(
+                event.target.value
+              )
+            }
+            placeholder="Search by author name..."
+            className="w-full px-3 py-2 bg-stone-50 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+          />
+
+
+          {/* Theme Filter */}
+          <select
+            value={selectedTheme}
+            onChange={(event) =>
+              setSelectedTheme &&
+              setSelectedTheme(
+                event.target.value
+              )
+            }
+            className="w-full px-3 py-2 bg-stone-50 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+          >
+
+            <option value="All">
+              All Themes
+            </option>
+
+            <option value="Self-Love">
+              Self-Love
+            </option>
+
+            <option value="Motivation">
+              Motivation
+            </option>
+
+            <option value="Confidence">
+              Confidence
+            </option>
+
+            <option value="Happiness">
+              Happiness
+            </option>
+
+            <option value="Growth">
+              Growth
+            </option>
+
+            <option value="Positivity">
+              Positivity
+            </option>
+
+          </select>
+
+
+          {/* Loading */}
+          {quoteLoading ? (
+
+            <div className="py-4 text-center">
+
+              <p className="text-xs text-stone-400">
+                Loading affirmations...
+              </p>
+
+            </div>
+
+          ) : quoteError ? (
+
+            /* Error */
+            <div className="py-3 text-center">
+
+              <p className="text-xs text-red-500">
+                {quoteError}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  fetchDailyQuote &&
+                  fetchDailyQuote()
+                }
+                className="text-xs text-amber-600 hover:text-amber-700 font-semibold mt-2"
+              >
+                Try Again
+              </button>
+
+            </div>
+
+          ) : safeFilteredApiQuotes.length > 0 ? (
+
+            /* Results */
+            <div className="space-y-3">
+
+              {safeFilteredApiQuotes
+                .slice(0, 3)
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-stone-50 p-3 rounded-xl border border-stone-100"
+                  >
+
+                    <p className="text-sm text-stone-700 leading-relaxed">
+                      "{item.quote}"
+                    </p>
+
+                    <p className="text-xs text-stone-500 font-semibold mt-2">
+                      — {item.author}
+                    </p>
+
+                  </div>
+                ))}
+
+            </div>
+
+          ) : (
+
+            /* No Results */
+            <div className="py-3 text-center">
+
+              <p className="text-xs text-stone-400">
+                No affirmations found.
+              </p>
+
+            </div>
+
+          )}
+
+
+          {/* Result Count */}
+          {!quoteLoading &&
+            !quoteError &&
+            safeFilteredApiQuotes.length > 3 && (
+              <p className="text-[11px] text-stone-400 text-center">
+                Showing 3 results
+              </p>
+            )}
+
+
+          {/* Refresh */}
+          {!quoteLoading &&
+            !quoteError &&
+            safeApiQuotes.length > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  fetchDailyQuote &&
+                  fetchDailyQuote()
+                }
+                className="w-full text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl font-semibold transition"
+              >
+                Refresh Affirmations
+              </button>
+            )}
+
+        </div>
+
 
         {/* Friend Requests */}
         {incomingRequests.length > 0 && (

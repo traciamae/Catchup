@@ -11,10 +11,6 @@ export default function Archive({
 }) {
   const [activeTab, setActiveTab] = useState('expired')
 
-  // =========================================================
-  // USER HELPERS
-  // =========================================================
-
   const getUserId = (user) => {
     if (!user) {
       return ''
@@ -59,11 +55,6 @@ export default function Archive({
   const currentUsername =
     getUserName(currentUser).toLowerCase()
 
-
-  // =========================================================
-  // FRIEND IDENTIFIERS
-  // =========================================================
-
   const friendIdentifiers = friends.flatMap(
     (friend) => {
       if (
@@ -93,11 +84,6 @@ export default function Archive({
       return []
     }
   )
-
-
-  // =========================================================
-  // CHECK POST OWNER
-  // =========================================================
 
   const isPostOwner = (post) => {
     if (!post) {
@@ -143,11 +129,6 @@ export default function Archive({
     return false
   }
 
-
-  // =========================================================
-  // CHECK FRIEND POST
-  // =========================================================
-
   const isFriendPost = (post) => {
     if (!post) {
       return false
@@ -166,11 +147,6 @@ export default function Archive({
       friendIdentifiers.includes(authorName)
     )
   }
-
-
-  // =========================================================
-  // CHECK POST AGE
-  // =========================================================
 
   const isOlderThan24Hours = (post) => {
     if (!post || !post.createdAt) {
@@ -193,11 +169,6 @@ export default function Archive({
     )
   }
 
-
-  // =========================================================
-  // EXPIRED / MEMORY POSTS
-  // =========================================================
-
   const expiredPosts = posts.filter((post) => {
     if (!post) {
       return false
@@ -208,8 +179,6 @@ export default function Archive({
       return false
     }
 
-    // Private journal posts do not belong
-    // in the shared Memory Archive.
     if (post.isPrivate) {
       return false
     }
@@ -233,11 +202,6 @@ export default function Archive({
     )
   })
 
-
-  // =========================================================
-  // DELETED POSTS
-  // =========================================================
-
   const deletedPosts = posts.filter((post) => {
     if (!post || !post.isDeleted) {
       return false
@@ -246,20 +210,10 @@ export default function Archive({
     return isPostOwner(post)
   })
 
-
-  // =========================================================
-  // DISPLAYED POSTS
-  // =========================================================
-
   const displayedPosts =
     activeTab === 'expired'
       ? expiredPosts
       : deletedPosts
-
-
-  // =========================================================
-  // HOURS LEFT
-  // =========================================================
 
   const getHoursLeft = (post) => {
     if (
@@ -293,11 +247,6 @@ export default function Archive({
     )
   }
 
-
-  // =========================================================
-  // PERMANENT DELETE
-  // =========================================================
-
   const handlePermanentDelete = (postId) => {
     if (
       !postId ||
@@ -316,11 +265,6 @@ export default function Archive({
     }
   }
 
-
-  // =========================================================
-  // VIEW PROFILE
-  // =========================================================
-
   const handleViewProfile = (post) => {
     if (
       !post ||
@@ -329,8 +273,6 @@ export default function Archive({
       return
     }
 
-    // Pass an object instead of only a string.
-    // This works better with the profile system.
     onViewProfile({
       id: post.authorId || '',
       username: post.author || '',
@@ -338,11 +280,6 @@ export default function Archive({
       avatarUrl: post.authorAvatar || ''
     })
   }
-
-
-  // =========================================================
-  // RENDER
-  // =========================================================
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 font-sans py-4">
